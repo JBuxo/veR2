@@ -370,7 +370,7 @@ describe("canonicalKey", () => {
   });
 
   it("normalizes to NFC so both Unicode spellings share one history", () => {
-    expect(canonicalKey("café.txt", policy)).toBe("café.txt");
+    expect(canonicalKey("cafe\u0301.txt", policy)).toBe("caf\u00e9.txt");
   });
 
   it.each(["", ".", "..", "./a", "a/.", "a/./b", "a/../b", "a/.."])("rejects %j", (key) => {
@@ -396,8 +396,8 @@ describe("canonicalKey", () => {
     expect(max).toBe(1024 - ".ver2/m/".length);
     expect(canonicalKey("a".repeat(max), policy)).toHaveLength(max);
     expect(() => canonicalKey("a".repeat(max + 1), policy)).toThrow(/maximum is 1016/);
-    // "é" is 2 bytes in UTF-8
-    expect(() => canonicalKey("é".repeat(max / 2 + 1), policy)).toThrow(InvalidKeyError);
+    // "\u00e9" is 2 bytes in UTF-8
+    expect(() => canonicalKey("\u00e9".repeat(max / 2 + 1), policy)).toThrow(InvalidKeyError);
   });
 });
 
