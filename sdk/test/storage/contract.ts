@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { sameContent } from "../../src/engine/evidence.js";
 import { type ObjectStore, StoreError } from "../../src/storage/types.js";
 
 export interface ContractTarget {
@@ -85,6 +86,29 @@ export function objectStoreContract(name: string, setup: () => ContractTarget) {
       expect((await store.copy(src, dst)).etag).toBe(etag);
       expect((await store.head(dst))?.headers).toMatchObject(headers);
       expect(await text((await store.get(dst))!.body)).toBe("payload");
+    });
+
+    it("copy preserves all content headers and metadata exactly (sameContent evidence)", async () => {
+      const { store, prefix } = setup();
+      const src = `${prefix}contract/same-src`;
+      const dst = `${prefix}contract/same-dst`;
+      const bare = `${prefix}contract/same-bare`;
+      const headers = {
+        contentType: "text/plain; charset=utf-8",
+        contentDisposition: 'attachment; filename="report.txt"',
+        cacheControl: "public, max-age=300",
+        contentEncoding: "identity",
+        contentLanguage: "en-US",
+        metadata: { owner: "ver2", rev: "7" },
+      };
+      await store.put(src, enc("same content"), { headers });
+      await store.copy(src, dst);
+      const [a, b] = [await store.head(src), await store.head(dst)];
+      expect(a?.headers).toMatchObject(headers);
+      expect(sameContent(a!, b!)).toBe(true);
+      // Same bytes without the headers is a different content.
+      await store.put(bare, enc("same content"));
+      expect(sameContent(a!, (await store.head(bare))!)).toBe(false);
     });
 
     it("copy sourceIfMatch rejects a changed source", async () => {
