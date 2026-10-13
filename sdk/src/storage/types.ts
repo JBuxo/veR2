@@ -44,6 +44,7 @@ export interface ListResult {
  */
 export interface ObjectStore {
   head(key: string): Promise<ObjectInfo | null>;
+  /** Callers must consume or cancel `body`: an unread body pins a socket on R2. */
   get(key: string, options?: GetOptions): Promise<{ info: ObjectInfo; body: ReadableStream<Uint8Array> } | null>;
   put(key: string, body: Uint8Array, options?: PutOptions): Promise<{ etag: string }>;
   /** Copies bytes and headers unchanged (metadata directive COPY). */
@@ -53,7 +54,7 @@ export interface ObjectStore {
   list(prefix: string, options?: { cursor?: string; limit?: number }): Promise<ListResult>;
 }
 
-export type StoreErrorKind = "precondition-failed" | "not-found" | "rate-limited" | "other";
+export type StoreErrorKind = "precondition-failed" | "not-found" | "rate-limited" | "network" | "other";
 
 export class StoreError extends Error {
   readonly kind: StoreErrorKind;

@@ -194,5 +194,18 @@ export function objectStoreContract(name: string, setup: () => ContractTarget) {
       await store.put(`${prefix}contract/sib2/out`, enc("out"));
       expect((await store.list(base)).keys).toEqual([`${base}in`]);
     });
+
+    it("handles keys with special characters", async () => {
+      const { store, prefix } = setup();
+      const dir = `${prefix}contract/sp ace+plus%pct?q#h/${String.fromCodePoint(0xfc)}/${String.fromCodePoint(0x1f600)}/`;
+      const a = `${dir}x`;
+      const b = `${dir}y`;
+      await store.put(a, enc("special"));
+      await store.copy(a, b);
+      expect((await store.head(b))?.size).toBe(7);
+      const res = await store.get(b);
+      expect(await text(res!.body)).toBe("special");
+      expect((await store.list(dir)).keys).toEqual([a, b]);
+    });
   });
 }

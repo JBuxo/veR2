@@ -25,8 +25,20 @@ export interface S3StoreOptions {
   accountId?: string;
   endpoint?: string;
   credentials?: { accessKeyId: string; secretAccessKey: string };
-  /** Bring your own client (custom retries, request handler). Overrides endpoint and credentials. */
+  /**
+   * Bring your own client. Overrides endpoint, credentials, retries and timeouts, and bypasses the R2 endpoint
+   * check. You are then responsible for `requestChecksumCalculation` / `responseChecksumValidation` = "WHEN_REQUIRED",
+   * which R2 needs.
+   */
   client?: S3Client;
+  /** Total attempts per request (default 3). */
+  maxAttempts?: number;
+  /** Per-request timeout in ms (default 60000). */
+  requestTimeoutMs?: number;
+  /** Connection timeout in ms (default 10000). */
+  connectionTimeoutMs?: number;
+  /** veR2's guards rely on R2's cf-copy-destination-* headers; other S3 servers silently ignore them. */
+  allowNonR2Endpoint?: boolean;
 }
 
 interface HeadLike {
@@ -61,13 +73,25 @@ function toInfo(key: string, res: HeadLike): ObjectInfo {
   };
 }
 
-/** R2 HEAD errors carry no error code, so classify by HTTP status. */
-function toStoreError(e: unknown): StoreError {
-  const status = (e as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+const NETWORK_CODES = new Set(["ECONNRESET", "ETIMEDOUT", "EPIPE", "ENOTFOUND", "ECONNREFUSED", "EAI_AGAIN", "ECONNABORTED"]);
+
+/** R2 HEAD errors carry no error code, so classify by HTTP status. No status means no HTTP response: network. */
+function toStoreError(op: string, key: string, e: unknown): StoreError {
+  const x = e as { $metadata?: { httpStatusCode?: number }; name?: string; code?: string; $retryable?: unknown };
+  const status = x?.$metadata?.httpStatusCode;
+  const message = e instanceof Error ? e.message : String(e);
+  if (status === undefined && (x?.name === "TimeoutError" || x?.name === "AbortError" || (x?.code !== undefined && NETWORK_CODES.has(x.code)) || x?.$retryable)) {
+    return new StoreError("network", `${op} ${key}: network ${message}`, undefined, { cause: e });
+  }
   const kind =
     status === 412 ? "precondition-failed" : status === 404 ? "not-found" : status === 429 ? "rate-limited" : "other";
-  return new StoreError(kind, e instanceof Error ? e.message : String(e), status, { cause: e });
+  return new StoreError(kind, `${op} ${key}: HTTP ${status ?? "?"} ${message}`, status, { cause: e });
 }
+
+const needEtag = (op: string, key: string, etag: string | undefined): string => {
+  if (!etag) throw new StoreError("other", `${op} ${key}: response had no ETag`);
+  return etag;
+};
 
 const copySource = (bucket: string, key: string) => `${bucket}/${key.split("/").map(encodeURIComponent).join("/")}`;
 
@@ -77,7 +101,8 @@ function withHeaders(cmd: CopyObjectCommand, headers: Record<string, string>): C
   cmd.middlewareStack.add(
     (next) => async (args) => {
       const request = args.request as { headers?: Record<string, string> };
-      if (request.headers) Object.assign(request.headers, headers);
+      if (!request.headers) throw new Error("cannot attach cf-copy-destination guard: request has no headers");
+      Object.assign(request.headers, headers);
       return next(args);
     },
     { step: "build", name: "ver2CopyDestinationConditions" },
@@ -85,7 +110,7 @@ function withHeaders(cmd: CopyObjectCommand, headers: Record<string, string>): C
   return cmd;
 }
 
-/** ObjectStore over the S3 API, tuned for Cloudflare R2. */
+/** ObjectStore over the S3 API for Cloudflare R2 only: the guards depend on R2-specific headers. */
 export class S3ObjectStore implements ObjectStore {
   readonly bucket: string;
   private readonly client: S3Client;
@@ -100,10 +125,21 @@ export class S3ObjectStore implements ObjectStore {
     const endpoint =
       options.endpoint ?? (options.accountId ? `https://${options.accountId}.r2.cloudflarestorage.com` : undefined);
     if (!endpoint) throw new ConfigurationError("S3ObjectStore: endpoint or accountId is required");
+    if (!options.allowNonR2Endpoint && !new URL(endpoint).hostname.endsWith(".r2.cloudflarestorage.com")) {
+      throw new ConfigurationError(
+        "S3ObjectStore: endpoint is not an R2 endpoint. veR2's guards rely on R2's cf-copy-destination-* headers, which other S3 implementations silently ignore. Set allowNonR2Endpoint: true to override.",
+      );
+    }
     this.client = new S3Client({
       region: "auto",
       endpoint,
       credentials: options.credentials,
+      maxAttempts: options.maxAttempts ?? 3,
+      requestHandler: {
+        requestTimeout: options.requestTimeoutMs ?? 60_000,
+        connectionTimeout: options.connectionTimeoutMs ?? 10_000,
+        throwOnRequestTimeout: true,
+      },
       requestChecksumCalculation: "WHEN_REQUIRED",
       responseChecksumValidation: "WHEN_REQUIRED",
     });
@@ -111,9 +147,12 @@ export class S3ObjectStore implements ObjectStore {
 
   async head(key: string): Promise<ObjectInfo | null> {
     try {
-      return toInfo(key, await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key })));
+      const res = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+      needEtag("head", key, res.ETag);
+      return toInfo(key, res);
     } catch (e) {
-      const err = toStoreError(e);
+      if (e instanceof StoreError) throw e;
+      const err = toStoreError("head", key, e);
       if (err.kind === "not-found") return null;
       throw err;
     }
@@ -122,11 +161,15 @@ export class S3ObjectStore implements ObjectStore {
   async get(key: string, options: GetOptions = {}): Promise<{ info: ObjectInfo; body: ReadableStream<Uint8Array> } | null> {
     try {
       const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key, IfMatch: options.ifMatch }));
-      if (!res.Body) throw new StoreError("other", `GetObject returned no body for ${key}`);
+      if (!res.Body) throw new StoreError("other", `get ${key}: response had no body`);
+      if (!res.ETag) {
+        await res.Body.transformToWebStream().cancel();
+        throw new StoreError("other", `get ${key}: response had no ETag`);
+      }
       return { info: toInfo(key, res), body: res.Body.transformToWebStream() as ReadableStream<Uint8Array> };
     } catch (e) {
       if (e instanceof StoreError) throw e;
-      const err = toStoreError(e);
+      const err = toStoreError("get", key, e);
       if (err.kind === "not-found") return null;
       throw err;
     }
@@ -150,9 +193,10 @@ export class S3ObjectStore implements ObjectStore {
           IfNoneMatch: options.ifNoneMatch,
         }),
       );
-      return { etag: res.ETag ?? "" };
+      return { etag: needEtag("put", key, res.ETag) };
     } catch (e) {
-      throw toStoreError(e);
+      if (e instanceof StoreError) throw e;
+      throw toStoreError("put", key, e);
     }
   }
 
@@ -160,18 +204,19 @@ export class S3ObjectStore implements ObjectStore {
     const extra: Record<string, string> = {};
     if (options.destIfMatch !== undefined) extra["cf-copy-destination-if-match"] = options.destIfMatch;
     if (options.destIfNoneMatch !== undefined) extra["cf-copy-destination-if-none-match"] = options.destIfNoneMatch;
-    const cmd = new CopyObjectCommand({
-      Bucket: this.bucket,
-      Key: destKey,
-      CopySource: copySource(this.bucket, sourceKey),
-      CopySourceIfMatch: options.sourceIfMatch,
-      MetadataDirective: "COPY",
-    });
     try {
+      const cmd = new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: destKey,
+        CopySource: copySource(this.bucket, sourceKey),
+        CopySourceIfMatch: options.sourceIfMatch,
+        MetadataDirective: "COPY",
+      });
       const res = await this.client.send(withHeaders(cmd, extra));
-      return { etag: res.CopyObjectResult?.ETag ?? "" };
+      return { etag: needEtag("copy", destKey, res.CopyObjectResult?.ETag) };
     } catch (e) {
-      throw toStoreError(e);
+      if (e instanceof StoreError) throw e;
+      throw toStoreError("copy", destKey, e);
     }
   }
 
@@ -179,21 +224,23 @@ export class S3ObjectStore implements ObjectStore {
     try {
       await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
     } catch (e) {
-      throw toStoreError(e);
+      throw toStoreError("delete", key, e);
     }
   }
 
   async list(prefix: string, options: { cursor?: string; limit?: number } = {}): Promise<ListResult> {
+    const raw = options.limit ?? 1000;
+    const limit = Math.min(1000, Math.max(1, Math.trunc(Number.isFinite(raw) ? raw : 1000)));
     try {
       const res = await this.client.send(
-        new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, ContinuationToken: options.cursor, MaxKeys: options.limit }),
+        new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, ContinuationToken: options.cursor, MaxKeys: limit }),
       );
       return {
         keys: (res.Contents ?? []).flatMap((o) => (o.Key ? [o.Key] : [])),
         cursor: res.IsTruncated ? res.NextContinuationToken : undefined,
       };
     } catch (e) {
-      throw toStoreError(e);
+      throw toStoreError("list", prefix, e);
     }
   }
 }
