@@ -2861,7 +2861,7 @@ export interface Ver2Options {
 export function toPublicError(e: unknown): Error {
   if (e instanceof Ver2Error) return e;
   if (e instanceof StoreError) {
-    const retryable = e.kind === "rate-limited" || (e.status ?? 0) >= 500;
+    const retryable = e.kind === "rate-limited" || e.kind === "network" || (e.status ?? 0) >= 500;
     return new StorageError(e.message, { status: e.status, retryable }, { cause: e });
   }
   if (e instanceof MetaConflictError) return new ConcurrencyConflictError(e.key, "the manifest changed concurrently");
