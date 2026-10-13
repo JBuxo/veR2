@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { put } from "../../src/engine/put.js";
 import { recover } from "../../src/engine/recover.js";
 import { ConcurrencyConflictError, OperationIncompleteError } from "../../src/errors.js";
-import { crashOn, dieOn, KEY, MANIFEST_KEY, setup } from "../helpers.js";
+import { crashOn, KEY, MANIFEST_KEY, setup } from "../helpers.js";
 
 const manifestPut = (op: string, key: string, phase: string) => op === "put" && key === MANIFEST_KEY && phase === "before";
 const LEASE = 61_000;
@@ -41,9 +41,8 @@ describe("recover", () => {
   it("rolls a put back when the promote never happened, deleting the orphan", async () => {
     const t = setup();
     await put(t.ctx, KEY, "one");
-    const revive = dieOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "before");
+    crashOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "before");
     await expect(put(t.ctx, KEY, "two")).rejects.toBeInstanceOf(OperationIncompleteError);
-    revive();
     t.advance(LEASE);
     expect((await recover(t.ctx, KEY)).outcome).toBe("rolled-back");
     expect(t.live()).toBe("one");
@@ -54,11 +53,10 @@ describe("recover", () => {
   it("rolls back a same-bytes put with new headers that crashed before the promote", async () => {
     const t = setup();
     const v1 = await put(t.ctx, KEY, "one", { headers: { contentType: "text/plain" } });
-    const revive = dieOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "before");
+    crashOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "before");
     await expect(put(t.ctx, KEY, "one", { headers: { contentType: "application/json" } })).rejects.toBeInstanceOf(
       OperationIncompleteError,
     );
-    revive();
     t.advance(LEASE);
     expect((await recover(t.ctx, KEY)).outcome).toBe("rolled-back");
     const m = await t.manifest();
@@ -71,9 +69,8 @@ describe("recover", () => {
   it("rolls forward a same-bytes, same-headers put that crashed before the promote (live already equals it)", async () => {
     const t = setup();
     await put(t.ctx, KEY, "one", { headers: { contentType: "text/plain" } });
-    const revive = dieOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "before");
+    crashOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "before");
     await expect(put(t.ctx, KEY, "one", { headers: { contentType: "text/plain" } })).rejects.toBeInstanceOf(OperationIncompleteError);
-    revive();
     const pending = (await t.manifest())?.pending;
     t.advance(LEASE);
     expect((await recover(t.ctx, KEY)).outcome).toBe("rolled-forward");

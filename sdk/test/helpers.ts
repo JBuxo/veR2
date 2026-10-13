@@ -66,25 +66,3 @@ export function crashOn(
     }
   };
 }
-
-/**
- * Simulate the process dying at the nth matching store call: that call and every later one
- * fail, so nothing (not even in-process cleanup) reaches storage. Returns `revive`.
- */
-export function dieOn(
-  store: MemoryObjectStore,
-  match: (op: StoreOp, key: string, phase: "before" | "after") => boolean,
-  nth = 1,
-): () => void {
-  let seen = 0;
-  let dead = false;
-  store.fault = (op, key, phase) => {
-    if (dead || (match(op, key, phase) && ++seen === nth)) {
-      dead = true;
-      throw new Error("simulated crash");
-    }
-  };
-  return () => {
-    store.fault = undefined;
-  };
-}

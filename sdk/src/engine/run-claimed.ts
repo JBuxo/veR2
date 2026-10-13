@@ -1,5 +1,6 @@
 import { ConcurrencyConflictError, OperationIncompleteError } from "../errors.js";
 import type { Manifest, PendingOp } from "../meta/types.js";
+import { StoreError } from "../storage/types.js";
 import type { EngineContext } from "./context.js";
 import { isOwnVersionObject } from "./evidence.js";
 import { commit } from "./manifest.js";
@@ -16,11 +17,19 @@ export interface Claim {
 const MAYBE_SETTLED = "the operation may already have been settled by recovery";
 
 /**
+ * True when storage answered the request with an error status, so it definitely did not apply.
+ * Without a response (network error, timeout, anything that isn't a StoreError) the request may
+ * still land later: R2 often completes aborted requests.
+ */
+const answered = (e: unknown): boolean => e instanceof StoreError && e.status !== undefined;
+
+/**
  * Run the storage half of a claimed operation, then commit `committed(result)`.
- * ConcurrencyConflict → release the claim, clean up, rethrow. Anything else → settle our
- * own op from storage evidence right away: rolled back → rethrow the original error (the key
- * is free and a retryable error stays retryable); rolled forward or undecidable →
- * OperationIncomplete.
+ * ConcurrencyConflict → release the claim, clean up, rethrow. A storage error that came with
+ * an HTTP status → settle our own op from evidence right away: rolled back → rethrow the
+ * original error (the key is free and a retryable error stays retryable); otherwise
+ * OperationIncomplete. No response → OperationIncomplete, leaving `pending` for recovery
+ * once the lease expires (settling now could race the request still in flight).
  */
 export async function runClaimed<T>(
   ctx: EngineContext,
@@ -37,6 +46,7 @@ export async function runClaimed<T>(
       await abandon(ctx, key, claim);
       throw e;
     }
+    if (!answered(e)) throw new OperationIncompleteError(key, claim.op.opId, e instanceof Error ? e.message : String(e), { cause: e });
     throw await settleOwn(ctx, key, claim.op, e);
   }
   try {

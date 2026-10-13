@@ -103,9 +103,19 @@ describe("put", () => {
     expect(t.live()).toBe("two");
   });
 
+  it("leaves its op pending when the promote fails without an HTTP response (it may still land)", async () => {
+    for (const error of [new Error("socket hang up"), new StoreError("network", "ECONNRESET")]) {
+      const t = setup();
+      crashOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "before", 1, error);
+      await expect(put(t.ctx, KEY, "one")).rejects.toBeInstanceOf(OperationIncompleteError);
+      expect((await t.manifest())?.pending?.type).toBe("put");
+      expect(t.versionObjects()).toHaveLength(1);
+    }
+  });
+
   it("reports a promote whose response was lost as completed-but-unconfirmed and commits it", async () => {
     const t = setup();
-    crashOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "after");
+    crashOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "after", 1, new StoreError("other", "internal error", 500));
     const err = await put(t.ctx, KEY, "one").catch((e: unknown) => e);
     expect(err).toBeInstanceOf(OperationIncompleteError);
     expect((err as Error).message).toMatch(/the operation completed \(verified from storage\) but its result was not returned; check versions\.list/);
