@@ -50,6 +50,53 @@ describe("recover", () => {
     expect((await t.manifest())?.pending).toBeNull();
   });
 
+  it("rolls back a same-bytes put with new headers that crashed before the promote", async () => {
+    const t = setup();
+    const v1 = await put(t.ctx, KEY, "one", { headers: { contentType: "text/plain" } });
+    crashOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "before");
+    await expect(put(t.ctx, KEY, "one", { headers: { contentType: "application/json" } })).rejects.toBeInstanceOf(
+      OperationIncompleteError,
+    );
+    t.advance(LEASE);
+    expect((await recover(t.ctx, KEY)).outcome).toBe("rolled-back");
+    const m = await t.manifest();
+    expect(m).toMatchObject({ current: v1.versionId, pending: null });
+    expect(m?.versions.at(-1)?.versionId).toBe(v1.versionId);
+    expect((await t.store.head(KEY))?.headers.contentType).toBe("text/plain");
+    expect(t.versionObjects()).toEqual([m?.versions[0]?.objectKey]);
+  });
+
+  it("rolls forward a same-bytes, same-headers put that crashed before the promote (live already equals it)", async () => {
+    const t = setup();
+    await put(t.ctx, KEY, "one", { headers: { contentType: "text/plain" } });
+    crashOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "before");
+    await expect(put(t.ctx, KEY, "one", { headers: { contentType: "text/plain" } })).rejects.toBeInstanceOf(OperationIncompleteError);
+    const pending = (await t.manifest())?.pending;
+    t.advance(LEASE);
+    expect((await recover(t.ctx, KEY)).outcome).toBe("rolled-forward");
+    const m = await t.manifest();
+    const record = m?.versions.at(-1);
+    expect(m).toMatchObject({ current: pending?.record.versionId, pending: null });
+    const live = await t.store.head(KEY);
+    expect(t.live()).toBe("one");
+    expect(live?.etag).toBe(record?.etag);
+    expect(live?.headers).toEqual(record?.headers);
+  });
+
+  it("accept-live deletes the stuck put's uncommitted version object", async () => {
+    const t = await crashedAfterPromote();
+    const orphan = (await t.manifest())?.pending?.record.objectKey;
+    t.store.putDirect(KEY, "someone else");
+    t.advance(LEASE);
+    expect((await recover(t.ctx, KEY)).outcome).toBe("stuck");
+    expect(t.versionObjects()).toContain(orphan);
+    expect((await recover(t.ctx, KEY, { acceptLive: true })).outcome).toBe("accepted-live");
+    const m = await t.manifest();
+    expect(t.versionObjects()).not.toContain(orphan);
+    expect(m?.versions.some((v) => v.objectKey === orphan)).toBe(false);
+    expect(t.versionObjects().sort()).toEqual(m!.versions.map((v) => v.objectKey!).sort());
+  });
+
   it("marks the op stuck when the evidence is ambiguous, and accept-live resolves it", async () => {
     const t = await crashedAfterPromote();
     t.store.putDirect(KEY, "someone else");

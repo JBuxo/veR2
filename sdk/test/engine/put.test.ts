@@ -65,6 +65,20 @@ describe("put", () => {
     expect(t.versionObjects()).toEqual([]);
   });
 
+  it("refuses a racing direct write with the same bytes but different headers", async () => {
+    const t = setup();
+    t.store.fault = (op, key, phase) => {
+      if (op === "copy" && key === KEY && phase === "before") {
+        t.store.fault = undefined;
+        t.store.putDirect(KEY, "mine", { contentType: "application/octet-stream" });
+      }
+    };
+    await expect(put(t.ctx, KEY, "mine", { headers: { contentType: "text/plain" } })).rejects.toBeInstanceOf(ConcurrencyConflictError);
+    expect((await t.store.head(KEY))?.headers.contentType).toBe("application/octet-stream");
+    expect((await t.manifest())?.pending).toBeNull();
+    expect(t.versionObjects()).toEqual([]);
+  });
+
   it("treats a 412 on a retried promote that already landed as success", async () => {
     const t = setup();
     crashOn(

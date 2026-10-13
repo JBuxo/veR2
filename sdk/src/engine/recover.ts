@@ -1,6 +1,7 @@
 import type { Manifest, PendingOp } from "../meta/types.js";
 import type { ObjectInfo } from "../storage/types.js";
 import type { EngineContext } from "./context.js";
+import { sameContent } from "./evidence.js";
 import { syncLive } from "./live.js";
 import { commit } from "./manifest.js";
 
@@ -38,7 +39,11 @@ export async function recover(ctx: EngineContext, key: string, options: RecoverO
 
   if (op.stuck) {
     if (!options.acceptLive) return { key, outcome: "stuck", opId: op.opId, reason: op.stuck };
-    if (!options.dryRun) await commit(ctx, key, await syncLive(ctx, key, { ...manifest, pending: null }, live), rev);
+    if (!options.dryRun) {
+      await commit(ctx, key, await syncLive(ctx, key, { ...manifest, pending: null }, live), rev);
+      // A put owns its version object and it was never committed; syncLive adopted live under a fresh id.
+      if (op.type === "put" && op.record.objectKey) await ctx.store.delete(op.record.objectKey).catch(() => undefined);
+    }
     return { key, outcome: "accepted-live", opId: op.opId };
   }
   if (ctx.now().getTime() - Date.parse(op.startedAt) < ctx.leaseMs) {
@@ -65,7 +70,8 @@ async function decide(ctx: EngineContext, manifest: Manifest, op: PendingOp, liv
   } else if (op.record.objectKey) {
     const objectKey = op.record.objectKey;
     const obj = await ctx.store.head(objectKey);
-    if (obj && live && live.etag === obj.etag) {
+    // Same content (bytes and headers), not just same ETag: a headers-only put keeps the ETag.
+    if (obj && live && sameContent(live, obj)) {
       const record = { ...op.record, etag: obj.etag };
       return {
         outcome: "rolled-forward",
