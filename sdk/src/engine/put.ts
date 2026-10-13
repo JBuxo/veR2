@@ -6,7 +6,7 @@ import { claim, loadForWrite } from "./claim.js";
 import type { EngineContext } from "./context.js";
 import { syncLive } from "./live.js";
 import { promote } from "./promote.js";
-import { runClaimed } from "./run-claimed.js";
+import { assertLeaseHeld, runClaimed } from "./run-claimed.js";
 
 export interface PutOptions {
   headers?: ObjectHeaders;
@@ -42,6 +42,10 @@ export async function put(ctx: EngineContext, rawKey: string, data: Uint8Array |
     source: "ver2",
     createdAt: ctx.now().toISOString(),
   };
+  // Upload first: the version key is fresh and unique, so this needs no lock and keeps
+  // the claimed window (claim → promote) as short as possible.
+  const objectEtag = await putVersionObject(ctx, objectKey, bytes, headers);
+  // The lease starts at the claim, so a slow upload doesn't eat into it.
   const op: PendingOp = {
     opId: ctx.newId(),
     type: "put",
@@ -49,19 +53,25 @@ export async function put(ctx: EngineContext, rawKey: string, data: Uint8Array |
     expectedLiveEtag: live?.etag ?? null,
     startedAt: ctx.now().toISOString(),
   };
-  const rev = await claim(ctx, key, manifest, loaded.rev, op);
+  let rev: string;
+  try {
+    rev = await claim(ctx, key, manifest, loaded.rev, op);
+  } catch (e) {
+    await ctx.store.delete(objectKey).catch(() => undefined);
+    throw e;
+  }
 
   const { liveEtag } = await runClaimed(
     ctx,
     key,
     { manifest, rev, op },
     async () => {
-      const objectEtag = await putVersionObject(ctx, objectKey, bytes, headers);
-      return { objectEtag, liveEtag: await promote(ctx, key, objectKey, objectEtag, op.expectedLiveEtag) };
+      assertLeaseHeld(ctx, key, op);
+      return { liveEtag: await promote(ctx, key, objectKey, objectEtag, op.expectedLiveEtag) };
     },
     (r) => ({
       ...manifest,
-      versions: [...manifest.versions, { ...record, etag: r.objectEtag }],
+      versions: [...manifest.versions, { ...record, etag: objectEtag }],
       current: versionId,
       liveEtag: r.liveEtag,
       pending: null,

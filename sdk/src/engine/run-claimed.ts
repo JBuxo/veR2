@@ -53,3 +53,22 @@ async function abandon(ctx: EngineContext, key: string, claim: Claim): Promise<v
     await ctx.store.delete(claim.op.record.objectKey).catch(() => undefined);
   }
 }
+
+/**
+ * Fence a live-key mutation: refuse once half the lease has passed, so a stalled writer
+ * cannot change the live object after recovery may have started settling its op.
+ * Call immediately before every mutation of the live key.
+ */
+export function assertLeaseHeld(ctx: EngineContext, key: string, op: PendingOp): void {
+  if (ctx.now().getTime() - Date.parse(op.startedAt) > ctx.leaseMs / 2) {
+    throw new ConcurrencyConflictError(key, "lease expired before the live object was changed");
+  }
+}
+
+/** Re-read the manifest and require that `opId` still holds the key (for unguarded mutations such as DELETE). */
+export async function confirmClaim(ctx: EngineContext, key: string, opId: string): Promise<void> {
+  const snap = await ctx.meta.read(key);
+  if (snap?.manifest.pending?.opId !== opId) {
+    throw new ConcurrencyConflictError(key, `operation ${opId} no longer holds the key`);
+  }
+}
