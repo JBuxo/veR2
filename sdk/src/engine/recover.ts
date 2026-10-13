@@ -45,9 +45,13 @@ export async function recover(ctx: EngineContext, key: string, options: RecoverO
   if (op.stuck) {
     if (!options.acceptLive) return { key, outcome: "stuck", opId: op.opId, reason: op.stuck };
     if (!options.dryRun) {
-      await commit(ctx, key, await syncLive(ctx, key, { ...manifest, pending: null }, live), rev);
-      // A put owns its version object and it was never committed; syncLive adopted live under a fresh id.
-      if (op.type === "put" && op.record.objectKey) await ctx.store.delete(op.record.objectKey).catch(() => undefined);
+      let versions = manifest.versions;
+      // Keep the stuck put's bytes: they may have been live and someone may have read them.
+      if (op.type === "put" && op.record.objectKey) {
+        const obj = await ctx.store.head(op.record.objectKey);
+        if (obj) versions = [...versions, { ...op.record, etag: obj.etag, unconfirmed: true }];
+      }
+      await commit(ctx, key, await syncLive(ctx, key, { ...manifest, versions, pending: null }, live), rev);
     }
     return { key, outcome: "accepted-live", opId: op.opId };
   }

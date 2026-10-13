@@ -86,17 +86,20 @@ describe("recover", () => {
     expect(live?.headers).toEqual(record?.headers);
   });
 
-  it("accept-live deletes the stuck put's uncommitted version object", async () => {
+  it("accept-live keeps the stuck put's version object and records it as unconfirmed", async () => {
     const t = await crashedAfterPromote();
-    const orphan = (await t.manifest())?.pending?.record.objectKey;
+    const stuckRecord = (await t.manifest())!.pending!.record;
     t.store.putDirect(KEY, "someone else");
     t.advance(LEASE);
     expect((await recover(t.ctx, KEY)).outcome).toBe("stuck");
-    expect(t.versionObjects()).toContain(orphan);
     expect((await recover(t.ctx, KEY, { acceptLive: true })).outcome).toBe("accepted-live");
     const m = await t.manifest();
-    expect(t.versionObjects()).not.toContain(orphan);
-    expect(m?.versions.some((v) => v.objectKey === orphan)).toBe(false);
+    expect(t.versionObjects()).toContain(stuckRecord.objectKey);
+    const recorded = m?.versions.find((v) => v.versionId === stuckRecord.versionId);
+    expect(recorded).toMatchObject({ objectKey: stuckRecord.objectKey, unconfirmed: true, etag: t.store.objects.get(stuckRecord.objectKey!)!.etag });
+    // The unconfirmed record comes before the adopted live object, which stays current.
+    expect(m?.versions.at(-1)).toMatchObject({ source: "external" });
+    expect(m?.current).toBe(m?.versions.at(-1)?.versionId);
     expect(t.versionObjects().sort()).toEqual(m!.versions.map((v) => v.objectKey!).sort());
   });
 

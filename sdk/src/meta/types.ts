@@ -14,6 +14,8 @@ export interface VersionRecord {
   source: "ver2" | "external" | "restore";
   restoredFrom?: string;
   createdAt: string;
+  /** Recorded by accept-live; may never have been live. */
+  unconfirmed?: boolean;
 }
 
 /** The journal entry for an in-flight operation. Its presence locks the key. */

@@ -14,6 +14,10 @@ function validateRecord(key: string, r: unknown, where: string): void {
   if (!isObject(r)) throw new CorruptManifestError(key, `${where} is not an object`);
   if (typeof r.versionId !== "string") throw new CorruptManifestError(key, `${where}.versionId is not a string`);
   if (typeof r.kind !== "string" || !RECORD_KINDS.has(r.kind)) throw new CorruptManifestError(key, `${where}.kind is not "put" or "delete"`);
+  if (r.objectKey !== undefined && typeof r.objectKey !== "string") throw new CorruptManifestError(key, `${where}.objectKey is not a string`);
+  if (r.unconfirmed !== undefined && typeof r.unconfirmed !== "boolean") {
+    throw new CorruptManifestError(key, `${where}.unconfirmed is not a boolean`);
+  }
 }
 
 function validatePending(key: string, p: unknown): void {
@@ -25,6 +29,9 @@ function validatePending(key: string, p: unknown): void {
   validateRecord(key, p.record, "pending.record");
   if (typeof p.startedAt !== "string") throw new CorruptManifestError(key, "pending.startedAt is not a string");
   if (!isStringOrNull(p.expectedLiveEtag)) throw new CorruptManifestError(key, "pending.expectedLiveEtag is not a string or null");
+  if (p.stuck !== undefined && (typeof p.stuck !== "string" || p.stuck === "")) {
+    throw new CorruptManifestError(key, "pending.stuck is not a non-empty string");
+  }
 }
 
 function validateManifest(key: string, m: unknown): Manifest {

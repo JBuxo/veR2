@@ -94,6 +94,19 @@ describe("ObjectStoreManifests read validation", () => {
   it("rejects a pending op without a string startedAt", () => corrupt(withPending({ startedAt: 0 }), /^pending\.startedAt/));
   it("rejects a pending op with a bad expectedLiveEtag", () =>
     corrupt(withPending({ expectedLiveEtag: 3 }), /^pending\.expectedLiveEtag/));
+  it("rejects a non-boolean unconfirmed flag", () =>
+    corrupt(JSON.stringify({ ...valid, versions: [{ ...record, unconfirmed: "yes" }] }), /^versions\[0\]\.unconfirmed/));
+  it("rejects a non-string objectKey", () =>
+    corrupt(JSON.stringify({ ...valid, versions: [{ ...record, objectKey: 5 }] }), /^versions\[0\]\.objectKey/));
+  it("rejects a non-string pending objectKey", () =>
+    corrupt(withPending({ record: { ...record, objectKey: null } }), /^pending\.record\.objectKey/));
+  it("rejects an empty stuck reason", () => corrupt(withPending({ stuck: "" }), /^pending\.stuck/));
+  it("rejects a non-string stuck reason", () => corrupt(withPending({ stuck: true }), /^pending\.stuck/));
+  it("accepts unconfirmed records and stuck ops", async () => {
+    const { store, meta } = setup();
+    store.putDirect(".ver2/m/a", JSON.stringify({ ...valid, versions: [{ ...record, objectKey: "k", unconfirmed: true }], pending: { ...pending, stuck: "why" } }));
+    expect((await meta.read("a"))?.manifest.pending?.stuck).toBe("why");
+  });
   it("rejects a pending op with a missing expectedLiveEtag", () =>
     corrupt(withPending({ expectedLiveEtag: undefined }), /^pending\.expectedLiveEtag/));
 
