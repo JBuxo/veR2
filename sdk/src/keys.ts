@@ -64,5 +64,9 @@ export function validateNamespace(namespace: string): string {
   if (maxKeyBytes({ namespace }) < 1) {
     throw new ConfigurationError(`Invalid namespace ${JSON.stringify(namespace)}: too long, leaves no room for keys`);
   }
+  // Version keys are `<ns>/o/<64 hex>/<26-char id>`; they must fit too.
+  if (encoder.encode(namespace).length + 3 + 64 + 1 + 26 > MAX_R2_KEY_BYTES) {
+    throw new ConfigurationError(`Invalid namespace ${JSON.stringify(namespace)}: too long, version keys would exceed R2's 1024-byte limit`);
+  }
   return namespace;
 }

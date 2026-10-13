@@ -6,6 +6,7 @@ export type Ver2ErrorCode =
   | "INTEGRITY_CHECK_FAILED"
   | "OPERATION_INCOMPLETE"
   | "CONFIGURATION_ERROR"
+  | "MANIFEST_INVALID"
   | "STORAGE_ERROR";
 
 /** Base class for every error veR2 throws on purpose. Switch on `code`, not on class names. */
@@ -69,6 +70,12 @@ export class OperationIncompleteError extends Ver2Error {
 export class ConfigurationError extends Ver2Error {
   constructor(message: string) {
     super("CONFIGURATION_ERROR", message);
+  }
+}
+
+export class CorruptManifestError extends Ver2Error {
+  constructor(key: string, reason: string) {
+    super("MANIFEST_INVALID", `Manifest for ${JSON.stringify(key)} is unreadable: ${reason}`, { key, reason });
   }
 }
 

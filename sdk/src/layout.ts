@@ -6,7 +6,10 @@ export interface Layout {
   versionKey(key: string, versionId: string): string;
 }
 
-/** Where veR2 keeps its own objects inside the bucket. */
+/**
+ * Where veR2 keeps its own objects inside the bucket.
+ * `key` arguments must already be canonical (NFC, via `canonicalKey`): version paths hash its UTF-8 bytes.
+ */
 export function layout(namespace: string): Layout {
   return {
     manifestPrefix: `${namespace}/m/`,

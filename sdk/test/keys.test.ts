@@ -100,3 +100,12 @@ describe("validateNamespace hardening", () => {
     expect(() => validateNamespace(ns)).toThrow(ConfigurationError);
   });
 });
+
+describe("validateNamespace version-key room", () => {
+  it("rejects a namespace whose version keys would exceed 1024 bytes", () => {
+    expect(() => validateNamespace("a".repeat(931))).toThrow(ConfigurationError);
+  });
+  it("accepts the longest namespace that fits", () => {
+    expect(() => validateNamespace("a".repeat(930))).not.toThrow();
+  });
+});

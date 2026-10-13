@@ -57,8 +57,14 @@ export class MetaConflictError extends Error {
 /** Per-key manifest storage with compare-and-swap. */
 export interface MetadataStore {
   read(key: string): Promise<ManifestSnapshot | null>;
-  /** Write if the stored revision is `expectedRev` (null = must not exist). Returns the new revision. */
+  /**
+   * Write if the stored revision is `expectedRev` (null = must not exist). Returns the new revision.
+   * Revisions are content-derived and may repeat when content repeats. Success means "the stored manifest now
+   * equals `manifest`", not exclusive ownership: anything needing exclusivity must carry a unique token (e.g.
+   * `opId`) in the manifest.
+   */
   write(key: string, manifest: Manifest, expectedRev: string | null): Promise<string>;
+  /** `prefix` is a raw string prefix (`docs` also matches `docs2/x`). Keys are returned canonical. */
   list(options?: { prefix?: string; cursor?: string; limit?: number }): Promise<{ keys: string[]; cursor?: string }>;
 }
 

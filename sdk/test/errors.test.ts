@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ConcurrencyConflictError,
   ConfigurationError,
+  CorruptManifestError,
   IntegrityCheckFailedError,
   InvalidKeyError,
   ObjectNotFoundError,
@@ -20,6 +21,7 @@ describe("errors", () => {
     [new IntegrityCheckFailedError("k", "v1", "bad hash"), "INTEGRITY_CHECK_FAILED", "IntegrityCheckFailedError"],
     [new OperationIncompleteError("k", "op1", "crashed"), "OPERATION_INCOMPLETE", "OperationIncompleteError"],
     [new ConfigurationError("no bucket"), "CONFIGURATION_ERROR", "ConfigurationError"],
+    [new CorruptManifestError("k", "invalid JSON"), "MANIFEST_INVALID", "CorruptManifestError"],
     [new StorageError("429", { status: 429, retryable: true }), "STORAGE_ERROR", "StorageError"],
   ])("%s has code %s", (error, code, name) => {
     expect(error).toBeInstanceOf(Ver2Error);

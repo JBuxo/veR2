@@ -82,6 +82,7 @@ describe("S3ObjectStore endpoint guard", () => {
     expect(mk({ endpoint: "not a url" })).toThrow(ConfigurationError);
     expect(mk({ endpoint: "not a url", allowNonR2Endpoint: true })).toThrow(ConfigurationError);
   });
+  // Reads a private @smithy/node-http-handler internal (`configProvider`); may need updating on SDK upgrades.
   it("installs the timeout defaults on the request handler", async () => {
     const store = mk({ accountId: "abc" })();
     const client = (store as unknown as { client: S3Client }).client;
