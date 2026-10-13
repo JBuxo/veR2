@@ -113,16 +113,15 @@ describe("put", () => {
     }
   });
 
-  it("reports a promote whose response was lost as completed-but-unconfirmed and commits it", async () => {
+  it("succeeds when the promote landed but answered with an error (settled forward from evidence)", async () => {
     const t = setup();
     crashOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "after", 1, new StoreError("other", "internal error", 500));
-    const err = await put(t.ctx, KEY, "one").catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(OperationIncompleteError);
-    expect((err as Error).message).toMatch(/the operation completed \(verified from storage\) but its result was not returned; check versions\.list/);
+    const r = await put(t.ctx, KEY, "one");
+    expect(t.live()).toBe("one");
     const m = await t.manifest();
-    expect(m?.pending).toBeNull();
+    expect(m).toMatchObject({ current: r.versionId, liveEtag: r.etag, pending: null });
     expect(m?.versions).toHaveLength(1);
-    expect(m?.current).toBe(m?.versions[0]?.versionId);
+    expect(r.etag).toBe((await t.store.head(KEY))?.etag);
   });
 
   it("says the op may already be settled when the commit loses its CAS", async () => {

@@ -1,4 +1,4 @@
-import type { Manifest, PendingOp } from "../meta/types.js";
+import type { Manifest, PendingOp, VersionRecord } from "../meta/types.js";
 import type { ObjectInfo } from "../storage/types.js";
 import type { EngineContext } from "./context.js";
 import { isOwnVersionObject, sameContent } from "./evidence.js";
@@ -12,6 +12,8 @@ export interface RecoveryResult {
   outcome: RecoveryOutcome;
   opId?: string;
   reason?: string;
+  /** rolled-forward: the record that was committed and the live ETag it was committed with. */
+  committed?: { record: VersionRecord; liveEtag: string | null };
 }
 
 export interface RecoverOptions {
@@ -28,6 +30,7 @@ export interface RecoverOptions {
 interface Decision {
   outcome: "rolled-forward" | "rolled-back" | "stuck";
   next: Manifest;
+  committed?: { record: VersionRecord; liveEtag: string | null };
   reason?: string;
   /** Uncommitted version object to delete after a roll-back. */
   orphan?: string;
@@ -66,7 +69,7 @@ export async function recover(ctx: EngineContext, key: string, options: RecoverO
       await ctx.store.delete(decision.orphan).catch(() => undefined);
     }
   }
-  return { key, outcome: decision.outcome, opId: op.opId, reason: decision.reason };
+  return { key, outcome: decision.outcome, opId: op.opId, reason: decision.reason, committed: decision.committed };
 }
 
 async function decide(ctx: EngineContext, manifest: Manifest, op: PendingOp, live: ObjectInfo | null): Promise<Decision> {
@@ -75,7 +78,11 @@ async function decide(ctx: EngineContext, manifest: Manifest, op: PendingOp, liv
 
   if (op.type === "delete") {
     if (live === null) {
-      return { outcome: "rolled-forward", next: { ...cleared, versions: [...manifest.versions, op.record], current: null, liveEtag: null } };
+      return {
+        outcome: "rolled-forward",
+        next: { ...cleared, versions: [...manifest.versions, op.record], current: null, liveEtag: null },
+        committed: { record: op.record, liveEtag: null },
+      };
     }
     if (liveEtag === op.expectedLiveEtag) return { outcome: "rolled-back", next: cleared };
   } else if (op.record.objectKey) {
@@ -87,6 +94,7 @@ async function decide(ctx: EngineContext, manifest: Manifest, op: PendingOp, liv
       return {
         outcome: "rolled-forward",
         next: { ...cleared, versions: [...manifest.versions, record], current: record.versionId, liveEtag: live.etag },
+        committed: { record, liveEtag: live.etag },
       };
     }
     if (liveEtag === op.expectedLiveEtag) {

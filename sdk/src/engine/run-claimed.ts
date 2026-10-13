@@ -1,5 +1,5 @@
 import { ConcurrencyConflictError, OperationIncompleteError } from "../errors.js";
-import type { Manifest, PendingOp } from "../meta/types.js";
+import type { Manifest, PendingOp, VersionRecord } from "../meta/types.js";
 import { StoreError } from "../storage/types.js";
 import type { EngineContext } from "./context.js";
 import { isOwnVersionObject } from "./evidence.js";
@@ -12,6 +12,12 @@ export interface Claim {
   /** Revision of the claimed manifest (the one with `pending`). */
   rev: string;
   op: PendingOp;
+}
+
+/** What recovery committed when it settled our op forward. */
+export interface SettledForward {
+  record: VersionRecord;
+  liveEtag: string | null;
 }
 
 const MAYBE_SETTLED = "the operation may already have been settled by recovery";
@@ -30,6 +36,8 @@ const answered = (e: unknown): boolean => e instanceof StoreError && e.status !=
  * original error (the key is free and a retryable error stays retryable); otherwise
  * OperationIncomplete. No response → OperationIncomplete, leaving `pending` for recovery
  * once the lease expires (settling now could race the request still in flight).
+ * When settling rolls forward, the op did complete: `settled` turns the committed state into
+ * the normal result (without it, OperationIncomplete says the result was not returned).
  */
 export async function runClaimed<T>(
   ctx: EngineContext,
@@ -37,6 +45,7 @@ export async function runClaimed<T>(
   claim: Claim,
   work: () => Promise<T>,
   committed: (result: T) => Manifest,
+  settled?: (s: SettledForward) => T,
 ): Promise<T> {
   let result: T;
   try {
@@ -47,7 +56,7 @@ export async function runClaimed<T>(
       throw e;
     }
     if (!answered(e)) throw new OperationIncompleteError(key, claim.op.opId, e instanceof Error ? e.message : String(e), { cause: e });
-    throw await settleOwn(ctx, key, claim.op, e);
+    return settleOwn(ctx, key, claim.op, e, settled);
   }
   try {
     await commit(ctx, key, committed(result), claim.rev);
@@ -58,18 +67,26 @@ export async function runClaimed<T>(
   return result;
 }
 
-/** Settle our own op after a failed storage step; returns the error to throw. */
-async function settleOwn(ctx: EngineContext, key: string, op: PendingOp, error: unknown): Promise<unknown> {
+/** Settle our own op after an answered storage failure: return the op's result or throw. */
+async function settleOwn<T>(
+  ctx: EngineContext,
+  key: string,
+  op: PendingOp,
+  error: unknown,
+  settled: ((s: SettledForward) => T) | undefined,
+): Promise<T> {
   const message = error instanceof Error ? error.message : String(error);
-  let outcome: string;
+  let result;
   try {
-    outcome = (await recover(ctx, key, { ignoreLease: true, onlyOpId: op.opId })).outcome;
+    result = await recover(ctx, key, { ignoreLease: true, onlyOpId: op.opId });
   } catch {
-    return new OperationIncompleteError(key, op.opId, message, { cause: error });
+    throw new OperationIncompleteError(key, op.opId, message, { cause: error });
   }
-  if (outcome === "rolled-back") return error;
+  const outcome = result.outcome;
+  if (outcome === "rolled-back") throw error;
   if (outcome === "rolled-forward") {
-    return new OperationIncompleteError(
+    if (settled && result.committed) return settled(result.committed);
+    throw new OperationIncompleteError(
       key,
       op.opId,
       "the operation completed (verified from storage) but its result was not returned; check versions.list",
@@ -77,7 +94,7 @@ async function settleOwn(ctx: EngineContext, key: string, op: PendingOp, error: 
     );
   }
   const reason = outcome === "none" ? `${message}; ${MAYBE_SETTLED}` : message;
-  return new OperationIncompleteError(key, op.opId, reason, { cause: error });
+  throw new OperationIncompleteError(key, op.opId, reason, { cause: error });
 }
 
 async function abandon(ctx: EngineContext, key: string, claim: Claim): Promise<void> {

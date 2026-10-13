@@ -77,6 +77,8 @@ export async function put(ctx: EngineContext, rawKey: string, data: Uint8Array |
       liveEtag: r.liveEtag,
       pending: null,
     }),
+    // Recovery verified the live object holds this version (same content), so it has an ETag.
+    (s) => ({ liveEtag: s.liveEtag ?? objectEtag }),
   );
   return { key, versionId, sha256, size: bytes.byteLength, etag: liveEtag };
 }

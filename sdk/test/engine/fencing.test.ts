@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { claim } from "../../src/engine/claim.js";
 import { put } from "../../src/engine/put.js";
-import { assertLeaseHeld, confirmClaim } from "../../src/engine/run-claimed.js";
-import { ConcurrencyConflictError } from "../../src/errors.js";
+import { assertLeaseHeld, confirmClaim, runClaimed } from "../../src/engine/run-claimed.js";
+import { ConcurrencyConflictError, OperationIncompleteError } from "../../src/errors.js";
 import { emptyManifest, type PendingOp } from "../../src/meta/types.js";
 import type { StoreOp } from "../../src/storage/memory.js";
+import { StoreError } from "../../src/storage/types.js";
 import { KEY, MANIFEST_KEY, setup } from "../helpers.js";
 
 const op = (opId: string, startedAt: string): PendingOp => ({
@@ -78,3 +79,22 @@ describe("lease fencing", () => {
     await expect(confirmClaim(t.ctx, KEY, "a")).rejects.toBeInstanceOf(ConcurrencyConflictError);
   });
 });
+
+describe("runClaimed settle-forward", () => {
+  it("without a settled callback, reports a verified completion as OperationIncomplete", async () => {
+    const t = setup();
+    const objectKey = t.ctx.paths.versionKey(KEY, "v1");
+    const { etag } = await t.store.put(objectKey, new TextEncoder().encode("x"));
+    const pending: PendingOp = { ...op("a", t.ctx.now().toISOString()), record: { versionId: "v1", kind: "put", objectKey, source: "ver2", createdAt: "x" } };
+    const rev = await claim(t.ctx, KEY, emptyManifest(KEY), null, pending);
+    const work = async () => {
+      await t.store.copy(objectKey, KEY, { sourceIfMatch: etag, destIfNoneMatch: "*" });
+      throw new StoreError("other", "internal error", 500);
+    };
+    const err = await runClaimed(t.ctx, KEY, { manifest: emptyManifest(KEY), rev, op: pending }, work, () => emptyManifest(KEY)).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(OperationIncompleteError);
+    expect((err as Error).message).toMatch(/completed \(verified from storage\) but its result was not returned/);
+    expect((await t.manifest())?.current).toBe("v1");
+  });
+});
+
