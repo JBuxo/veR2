@@ -32,7 +32,7 @@ const answered = (e: unknown): boolean => e instanceof StoreError && e.status !=
 /**
  * Run the storage half of a claimed operation, then commit `committed(result)`.
  * ConcurrencyConflict → release the claim, clean up, rethrow. A storage error that came with
- * an HTTP status → settle our own op from evidence right away: rolled back → rethrow the
+ * an HTTP status (from the work or from the commit) → settle our own op from evidence right away: rolled back → rethrow the
  * original error (the key is free and a retryable error stays retryable); otherwise
  * OperationIncomplete. No response → OperationIncomplete, leaving `pending` for recovery
  * once the lease expires (settling now could race the request still in flight).
@@ -61,6 +61,8 @@ export async function runClaimed<T>(
   try {
     await commit(ctx, key, committed(result), claim.rev);
   } catch (e) {
+    // An answered failure definitely didn't write the manifest; our evidence is in place, so settle now.
+    if (answered(e)) return settleOwn(ctx, key, claim.op, e, settled);
     const reason = e instanceof ConcurrencyConflictError ? `the manifest changed before the commit; ${MAYBE_SETTLED}` : String(e);
     throw new OperationIncompleteError(key, claim.op.opId, reason, { cause: e });
   }

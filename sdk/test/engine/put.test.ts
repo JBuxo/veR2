@@ -136,6 +136,20 @@ describe("put", () => {
     await expect(put(t.ctx, KEY, "one")).rejects.toThrow(/may already have been settled by recovery/);
   });
 
+  it("settles forward when the commit is answered with an error status", async () => {
+    const t = setup();
+    crashOn(t.store, (op, key, phase) => op === "put" && key === MANIFEST_KEY && phase === "before", 2, new StoreError("other", "internal error", 500));
+    const r = await put(t.ctx, KEY, "one");
+    expect(await t.manifest()).toMatchObject({ current: r.versionId, liveEtag: r.etag, pending: null });
+  });
+
+  it("leaves the journal entry when the commit gets no response", async () => {
+    const t = setup();
+    crashOn(t.store, (op, key, phase) => op === "put" && key === MANIFEST_KEY && phase === "before", 2, new StoreError("network", "ECONNRESET"));
+    await expect(put(t.ctx, KEY, "one")).rejects.toBeInstanceOf(OperationIncompleteError);
+    expect((await t.manifest())?.pending?.type).toBe("put");
+  });
+
   it("leaves a recoverable journal entry when the commit fails", async () => {
     const t = setup();
     crashOn(t.store, (op, key, phase) => op === "put" && key === MANIFEST_KEY && phase === "before", 2);
