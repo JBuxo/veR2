@@ -7,6 +7,26 @@ import { type Manifest, type ManifestSnapshot, MetaConflictError, type MetadataS
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isStringOrNull = (v: unknown) => v === null || typeof v === "string";
 
+const RECORD_KINDS = new Set(["put", "delete"]);
+const OP_TYPES = new Set(["put", "delete", "restore"]);
+
+function validateRecord(key: string, r: unknown, where: string): void {
+  if (!isObject(r)) throw new CorruptManifestError(key, `${where} is not an object`);
+  if (typeof r.versionId !== "string") throw new CorruptManifestError(key, `${where}.versionId is not a string`);
+  if (typeof r.kind !== "string" || !RECORD_KINDS.has(r.kind)) throw new CorruptManifestError(key, `${where}.kind is not "put" or "delete"`);
+}
+
+function validatePending(key: string, p: unknown): void {
+  if (!isObject(p)) throw new CorruptManifestError(key, "pending is not null or an object");
+  if (typeof p.opId !== "string") throw new CorruptManifestError(key, "pending.opId is not a string");
+  if (typeof p.type !== "string" || !OP_TYPES.has(p.type)) {
+    throw new CorruptManifestError(key, 'pending.type is not "put", "delete" or "restore"');
+  }
+  validateRecord(key, p.record, "pending.record");
+  if (typeof p.startedAt !== "string") throw new CorruptManifestError(key, "pending.startedAt is not a string");
+  if (!isStringOrNull(p.expectedLiveEtag)) throw new CorruptManifestError(key, "pending.expectedLiveEtag is not a string or null");
+}
+
 function validateManifest(key: string, m: unknown): Manifest {
   if (!isObject(m)) throw new CorruptManifestError(key, "not a JSON object");
   if (m.schema !== 1) {
@@ -17,7 +37,8 @@ function validateManifest(key: string, m: unknown): Manifest {
   }
   if (m.key !== key) throw new CorruptManifestError(key, `manifest belongs to ${JSON.stringify(m.key)}`);
   if (!Array.isArray(m.versions)) throw new CorruptManifestError(key, "versions is not an array");
-  if (m.pending !== null && !isObject(m.pending)) throw new CorruptManifestError(key, "pending is not null or an object");
+  m.versions.forEach((v, i) => validateRecord(key, v, `versions[${i}]`));
+  if (m.pending !== null) validatePending(key, m.pending);
   if (!isStringOrNull(m.current)) throw new CorruptManifestError(key, "current is not a string or null");
   if (!isStringOrNull(m.liveEtag)) throw new CorruptManifestError(key, "liveEtag is not a string or null");
   return m as unknown as Manifest;
@@ -40,6 +61,7 @@ export class ObjectStoreManifests implements MetadataStore {
     try {
       text = await new Response(res.body).text();
     } catch (e) {
+      if (e instanceof StoreError) throw e;
       const message = e instanceof Error ? e.message : String(e);
       throw new StoreError("network", `read manifest ${key}: ${message}`, undefined, { cause: e });
     }

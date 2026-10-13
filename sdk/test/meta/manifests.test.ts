@@ -3,7 +3,7 @@ import { layout } from "../../src/layout.js";
 import { ObjectStoreManifests } from "../../src/meta/object-store-manifests.js";
 import { emptyManifest, MetaConflictError } from "../../src/meta/types.js";
 import { MemoryObjectStore } from "../../src/storage/memory.js";
-import type { ObjectStore } from "../../src/storage/types.js";
+import { type ObjectStore, StoreError } from "../../src/storage/types.js";
 
 function setup() {
   const store = new MemoryObjectStore();
@@ -70,6 +70,33 @@ describe("ObjectStoreManifests read validation", () => {
   it("rejects a bad current", () => corrupt(JSON.stringify({ ...valid, current: 5 }), /current/));
   it("rejects a bad liveEtag", () => corrupt(JSON.stringify({ ...valid, liveEtag: 5 }), /liveEtag/));
 
+  const record = { versionId: "v1", kind: "put", source: "ver2", createdAt: "2026-01-01T00:00:00.000Z" };
+  const pending = { opId: "op1", type: "put", record, expectedLiveEtag: null, startedAt: "2026-01-01T00:00:00.000Z" };
+  const withPending = (p: Record<string, unknown>) => JSON.stringify({ ...valid, pending: { ...pending, ...p } });
+
+  it("accepts a well-formed pending op and versions", async () => {
+    const { store, meta } = setup();
+    store.putDirect(".ver2/m/a", JSON.stringify({ ...valid, versions: [record], pending: { ...pending, expectedLiveEtag: '"e"' } }));
+    expect((await meta.read("a"))?.manifest.pending?.opId).toBe("op1");
+  });
+  it("rejects a version that is not an object", () => corrupt(JSON.stringify({ ...valid, versions: [5] }), /^versions\[0\] is not an object$/));
+  it("rejects a version without a string versionId", () =>
+    corrupt(JSON.stringify({ ...valid, versions: [record, { ...record, versionId: 7 }] }), /^versions\[1\]\.versionId/));
+  it("rejects a version with an unknown kind", () =>
+    corrupt(JSON.stringify({ ...valid, versions: [{ ...record, kind: "restore" }] }), /^versions\[0\]\.kind/));
+  it("rejects a pending op without a string opId", () => corrupt(withPending({ opId: 1 }), /^pending\.opId/));
+  it("rejects a pending op with an unknown type", () => corrupt(withPending({ type: "copy" }), /^pending\.type/));
+  it("rejects a pending op without a record", () => corrupt(withPending({ record: null }), /^pending\.record is not an object$/));
+  it("rejects a pending record without a string versionId", () =>
+    corrupt(withPending({ record: { ...record, versionId: null } }), /^pending\.record\.versionId/));
+  it("rejects a pending record with an unknown kind", () =>
+    corrupt(withPending({ record: { ...record, kind: "x" } }), /^pending\.record\.kind/));
+  it("rejects a pending op without a string startedAt", () => corrupt(withPending({ startedAt: 0 }), /^pending\.startedAt/));
+  it("rejects a pending op with a bad expectedLiveEtag", () =>
+    corrupt(withPending({ expectedLiveEtag: 3 }), /^pending\.expectedLiveEtag/));
+  it("rejects a pending op with a missing expectedLiveEtag", () =>
+    corrupt(withPending({ expectedLiveEtag: undefined }), /^pending\.expectedLiveEtag/));
+
   it("classifies a failing body stream as a network StoreError", async () => {
     const body = new ReadableStream<Uint8Array>({
       pull() {
@@ -82,5 +109,17 @@ describe("ObjectStoreManifests read validation", () => {
     const meta = new ObjectStoreManifests(store, layout(".ver2"));
     await expect(meta.read("a")).rejects.toMatchObject({ name: "StoreError", kind: "network" });
     await expect(meta.read("a").catch((e: Error) => e.message)).resolves.toMatch(/^read manifest a: /);
+  });
+
+  it("rethrows a StoreError from the body stream unchanged", async () => {
+    const original = new StoreError("rate-limited", "slow down", 429);
+    const body = new ReadableStream<Uint8Array>({
+      pull() {
+        throw original;
+      },
+    });
+    const store = { get: async () => ({ info: { etag: "e" }, body }) } as unknown as ObjectStore;
+    const meta = new ObjectStoreManifests(store, layout(".ver2"));
+    await expect(meta.read("a")).rejects.toBe(original);
   });
 });
