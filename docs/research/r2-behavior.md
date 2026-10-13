@@ -13,9 +13,10 @@ When R2 changes, update this file. Contributors adding a new storage assumption 
 | PutObject | `If-None-Match: <etag>` (not `*`) | Proceeds when the ETag differs (standard HTTP semantics) |
 | CopyObject | `x-amz-copy-source-if-match` / `-if-none-match` / `-if-unmodified-since` | Honored (412) |
 | CopyObject | `If-Match` / `If-None-Match` on the **destination** | **Ignored**: destination overwritten |
-| CopyObject | `cf-copy-destination-if-match` / `cf-copy-destination-if-none-match: *` | Honored (412; 200 on match or absent). Observed in one run, then confirmed in the full re-run |
+| CopyObject | `cf-copy-destination-if-none-match: *` | Honored: 412 if the destination exists, 200 if absent |
+| CopyObject | `cf-copy-destination-if-match: <etag>` | Honored: 200 on match; 412 if stale **or the destination is absent** (nothing written) |
 | DeleteObject | `If-Match` | **Ignored**: object deleted despite a stale ETag |
-| HeadObject / GetObject | `If-Match` / `If-None-Match` | Honored (412 / 304) |
+| HeadObject / GetObject | `If-Match` / `If-None-Match` | Honored (412 / 304). `If-Match` on a **missing** key → 404 `NoSuchKey`, not 412 |
 
 ## Concurrency
 
