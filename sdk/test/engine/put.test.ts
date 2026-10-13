@@ -91,6 +91,42 @@ describe("put", () => {
     expect((await t.manifest())?.current).toBe(r.versionId);
   });
 
+  it("settles its own op on a failed promote and surfaces the original error", async () => {
+    const t = setup();
+    const throttled = new StoreError("rate-limited", "slow down", 429);
+    crashOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "before", 1, throttled);
+    await expect(put(t.ctx, KEY, "one")).rejects.toBe(throttled);
+    expect((await t.manifest())?.pending).toBeNull();
+    expect(t.versionObjects()).toEqual([]);
+    expect(t.live()).toBeNull();
+    await put(t.ctx, KEY, "two"); // the key is not locked
+    expect(t.live()).toBe("two");
+  });
+
+  it("reports a promote whose response was lost as completed-but-unconfirmed and commits it", async () => {
+    const t = setup();
+    crashOn(t.store, (op, key, phase) => op === "copy" && key === KEY && phase === "after");
+    const err = await put(t.ctx, KEY, "one").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(OperationIncompleteError);
+    expect((err as Error).message).toMatch(/the operation completed \(verified from storage\) but its result was not returned; check versions\.list/);
+    const m = await t.manifest();
+    expect(m?.pending).toBeNull();
+    expect(m?.versions).toHaveLength(1);
+    expect(m?.current).toBe(m?.versions[0]?.versionId);
+  });
+
+  it("says the op may already be settled when the commit loses its CAS", async () => {
+    const t = setup();
+    let puts = 0;
+    t.store.fault = (op, key, phase) => {
+      if (op === "put" && key === MANIFEST_KEY && phase === "before" && ++puts === 2) {
+        t.store.fault = undefined;
+        t.store.putDirect(MANIFEST_KEY, JSON.stringify({ schema: 1, key: KEY, current: null, liveEtag: null, versions: [], pending: null }));
+      }
+    };
+    await expect(put(t.ctx, KEY, "one")).rejects.toThrow(/may already have been settled by recovery/);
+  });
+
   it("leaves a recoverable journal entry when the commit fails", async () => {
     const t = setup();
     crashOn(t.store, (op, key, phase) => op === "put" && key === MANIFEST_KEY && phase === "before", 2);

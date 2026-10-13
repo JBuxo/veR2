@@ -19,6 +19,10 @@ export interface RecoverOptions {
   dryRun?: boolean;
   /** Resolve a stuck op by adopting whatever is live now as an external version. */
   acceptLive?: boolean;
+  /** Settle even inside the lease. Only for the writer that owns the op (with `onlyOpId`). */
+  ignoreLease?: boolean;
+  /** Act only if the pending op has this id; otherwise report "none". */
+  onlyOpId?: string;
 }
 
 interface Decision {
@@ -34,6 +38,7 @@ export async function recover(ctx: EngineContext, key: string, options: RecoverO
   const snap = await ctx.meta.read(key);
   const op = snap?.manifest.pending;
   if (!snap || !op) return { key, outcome: "none" };
+  if (options.onlyOpId !== undefined && op.opId !== options.onlyOpId) return { key, outcome: "none" };
   const { manifest, rev } = snap;
   const live = await ctx.store.head(key);
 
@@ -46,7 +51,7 @@ export async function recover(ctx: EngineContext, key: string, options: RecoverO
     }
     return { key, outcome: "accepted-live", opId: op.opId };
   }
-  if (ctx.now().getTime() - Date.parse(op.startedAt) < ctx.leaseMs) {
+  if (!options.ignoreLease && ctx.now().getTime() - Date.parse(op.startedAt) < ctx.leaseMs) {
     return { key, outcome: "in-progress", opId: op.opId };
   }
 

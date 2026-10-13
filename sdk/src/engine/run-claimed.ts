@@ -2,6 +2,7 @@ import { ConcurrencyConflictError, OperationIncompleteError } from "../errors.js
 import type { Manifest, PendingOp } from "../meta/types.js";
 import type { EngineContext } from "./context.js";
 import { commit } from "./manifest.js";
+import { recover } from "./recover.js";
 
 export interface Claim {
   /** Manifest as it was before `pending` was set (includes any adoptions). */
@@ -11,10 +12,14 @@ export interface Claim {
   op: PendingOp;
 }
 
+const MAYBE_SETTLED = "the operation may already have been settled by recovery";
+
 /**
  * Run the storage half of a claimed operation, then commit `committed(result)`.
- * ConcurrencyConflict → release the claim, clean up, rethrow. Anything else →
- * OperationIncomplete, leaving `pending` for recovery to settle from evidence.
+ * ConcurrencyConflict → release the claim, clean up, rethrow. Anything else → settle our
+ * own op from storage evidence right away: rolled back → rethrow the original error (the key
+ * is free and a retryable error stays retryable); rolled forward or undecidable →
+ * OperationIncomplete.
  */
 export async function runClaimed<T>(
   ctx: EngineContext,
@@ -31,15 +36,37 @@ export async function runClaimed<T>(
       await abandon(ctx, key, claim);
       throw e;
     }
-    throw new OperationIncompleteError(key, claim.op.opId, e instanceof Error ? e.message : String(e), { cause: e });
+    throw await settleOwn(ctx, key, claim.op, e);
   }
   try {
     await commit(ctx, key, committed(result), claim.rev);
   } catch (e) {
-    const reason = e instanceof ConcurrencyConflictError ? "the manifest changed before the commit" : String(e);
+    const reason = e instanceof ConcurrencyConflictError ? `the manifest changed before the commit; ${MAYBE_SETTLED}` : String(e);
     throw new OperationIncompleteError(key, claim.op.opId, reason, { cause: e });
   }
   return result;
+}
+
+/** Settle our own op after a failed storage step; returns the error to throw. */
+async function settleOwn(ctx: EngineContext, key: string, op: PendingOp, error: unknown): Promise<unknown> {
+  const message = error instanceof Error ? error.message : String(error);
+  let outcome: string;
+  try {
+    outcome = (await recover(ctx, key, { ignoreLease: true, onlyOpId: op.opId })).outcome;
+  } catch {
+    return new OperationIncompleteError(key, op.opId, message, { cause: error });
+  }
+  if (outcome === "rolled-back") return error;
+  if (outcome === "rolled-forward") {
+    return new OperationIncompleteError(
+      key,
+      op.opId,
+      "the operation completed (verified from storage) but its result was not returned; check versions.list",
+      { cause: error },
+    );
+  }
+  const reason = outcome === "none" ? `${message}; ${MAYBE_SETTLED}` : message;
+  return new OperationIncompleteError(key, op.opId, reason, { cause: error });
 }
 
 async function abandon(ctx: EngineContext, key: string, claim: Claim): Promise<void> {
