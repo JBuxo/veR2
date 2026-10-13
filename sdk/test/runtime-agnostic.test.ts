@@ -11,13 +11,17 @@ function tsFiles(dir: string): string[] {
 }
 
 const forbidden: [string, RegExp][] = [
-  ['from "node:', /from\s+["']node:/],
+  ["node builtin import", /(from|import\s*\()\s*["'](node:|fs|path|crypto|os|stream|http|https|url|util|child_process|zlib|net|tls|events|buffer)\b/],
   ["require(", /require\(/],
   ["Buffer", /\bBuffer\b/],
   ["process.", /\bprocess\./],
+  ["globalThis.process", /\bglobalThis\.process\b/],
   ["__dirname", /\b__dirname\b/],
   ["setImmediate", /\bsetImmediate\b/],
 ];
+
+// Comments may legitimately mention Node APIs; only scan code.
+const stripComments = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
 
 describe("sdk/src is runtime-agnostic", () => {
   const files = tsFiles(SRC);
@@ -27,7 +31,7 @@ describe("sdk/src is runtime-agnostic", () => {
   });
 
   it.each(files.map((f) => [f.slice(SRC.length + 1), f]))("%s uses no Node-only APIs", (_name, file) => {
-    const text = readFileSync(file as string, "utf8");
+    const text = stripComments(readFileSync(file as string, "utf8"));
     for (const [label, re] of forbidden) {
       expect(re.test(text), `${file} uses ${label}`).toBe(false);
     }
