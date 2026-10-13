@@ -36,6 +36,7 @@ When R2 changes, update this file. Contributors adding a new storage assumption 
 - Metadata-only rewrites keep the same ETag.
 - CopyObject keeps the ETag for single-part sources. For a multipart source, the copy gets a **new**, plain-MD5-style ETag (bytes identical).
 - `UploadPartCopy` reassembly keeps the multipart `-N` ETag form.
+- A copy of that copied object keeps its (new) ETag. All five content headers (`Content-Type`, `-Disposition`, `-Encoding`, `-Language`, `Cache-Control`) and custom metadata survive a copy chain exactly (2026-10-13, one run).
 
 ## Keys
 
