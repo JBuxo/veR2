@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { sameContent } from "../../src/engine/evidence.js";
+import { isOwnVersionObject, sameContent } from "../../src/engine/evidence.js";
+import { setup } from "../helpers.js";
 import type { ObjectHeaders, ObjectInfo } from "../../src/storage/types.js";
 
 const info = (etag: string, headers: ObjectHeaders): ObjectInfo => ({ key: "k", etag, size: 1, lastModified: new Date(0), headers });
@@ -29,5 +30,16 @@ describe("sameContent", () => {
     expect(sameContent(info('"e"', { metadata: { a: "1" } }), info('"e"', { metadata: { a: "2" } }))).toBe(false);
     expect(sameContent(info('"e"', { metadata: { a: "1" } }), info('"e"', { metadata: { a: "1", b: "2" } }))).toBe(false);
     expect(sameContent(info('"e"', { metadata: { a: "1" } }), info('"e"', {}))).toBe(false);
+  });
+});
+
+describe("isOwnVersionObject", () => {
+  it("accepts only keys under this key's version prefix", () => {
+    const { ctx } = setup();
+    expect(isOwnVersionObject(ctx, "a.txt", ctx.paths.versionKey("a.txt", "v1"))).toBe(true);
+    expect(isOwnVersionObject(ctx, "a.txt", ctx.paths.versionKey("b.txt", "v1"))).toBe(false);
+    expect(isOwnVersionObject(ctx, "a.txt", "a.txt")).toBe(false);
+    expect(isOwnVersionObject(ctx, "a.txt", "precious.txt")).toBe(false);
+    expect(isOwnVersionObject(ctx, "a.txt", ".ver2/m/a.txt")).toBe(false);
   });
 });

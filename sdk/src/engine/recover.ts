@@ -1,7 +1,7 @@
 import type { Manifest, PendingOp } from "../meta/types.js";
 import type { ObjectInfo } from "../storage/types.js";
 import type { EngineContext } from "./context.js";
-import { sameContent } from "./evidence.js";
+import { isOwnVersionObject, sameContent } from "./evidence.js";
 import { syncLive } from "./live.js";
 import { commit } from "./manifest.js";
 
@@ -62,7 +62,9 @@ export async function recover(ctx: EngineContext, key: string, options: RecoverO
   const decision = await decide(ctx, manifest, op, live);
   if (!options.dryRun) {
     await commit(ctx, key, decision.next, rev);
-    if (decision.orphan) await ctx.store.delete(decision.orphan).catch(() => undefined);
+    if (decision.orphan && isOwnVersionObject(ctx, key, decision.orphan)) {
+      await ctx.store.delete(decision.orphan).catch(() => undefined);
+    }
   }
   return { key, outcome: decision.outcome, opId: op.opId, reason: decision.reason };
 }

@@ -103,6 +103,20 @@ describe("recover", () => {
     expect(t.versionObjects().sort()).toEqual(m!.versions.map((v) => v.objectKey!).sort());
   });
 
+  it("never deletes a manifest-supplied object outside this key's version prefix", async () => {
+    const t = setup();
+    await put(t.ctx, KEY, "one");
+    t.store.putDirect("precious.txt", "do not delete");
+    const snap = (await t.ctx.meta.read(KEY))!;
+    const startedAt = t.ctx.now().toISOString();
+    const record = { versionId: "evil", kind: "put" as const, objectKey: "precious.txt", source: "ver2" as const, createdAt: startedAt };
+    const pending = { opId: "evil-op", type: "put" as const, record, expectedLiveEtag: snap.manifest.liveEtag, startedAt };
+    await t.ctx.meta.write(KEY, { ...snap.manifest, pending }, snap.rev);
+    t.advance(LEASE);
+    expect((await recover(t.ctx, KEY)).outcome).toBe("rolled-back");
+    expect(t.live("precious.txt")).toBe("do not delete");
+  });
+
   it("marks the op stuck when the evidence is ambiguous, and accept-live resolves it", async () => {
     const t = await crashedAfterPromote();
     t.store.putDirect(KEY, "someone else");

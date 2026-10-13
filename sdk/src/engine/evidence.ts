@@ -1,4 +1,5 @@
 import type { ObjectHeaders, ObjectInfo } from "../storage/types.js";
+import type { EngineContext } from "./context.js";
 
 const HEADER_FIELDS = ["contentType", "contentDisposition", "cacheControl", "contentEncoding", "contentLanguage"] as const;
 
@@ -16,3 +17,10 @@ const sameHeaders = (a: ObjectHeaders, b: ObjectHeaders): boolean =>
  * headers-only change keeps the ETag, so the bytes can match while the headers don't.
  */
 export const sameContent = (a: ObjectInfo, b: ObjectInfo): boolean => a.etag === b.etag && sameHeaders(a.headers, b.headers);
+
+/**
+ * True when `objectKey` is one of `key`'s version objects. Check before deleting any key taken
+ * from a manifest: a corrupt or hostile manifest must not be able to delete arbitrary objects.
+ */
+export const isOwnVersionObject = (ctx: EngineContext, key: string, objectKey: string): boolean =>
+  objectKey.startsWith(ctx.paths.versionKey(key, ""));

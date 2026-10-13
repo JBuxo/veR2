@@ -4,6 +4,7 @@ import type { PendingOp, VersionRecord } from "../meta/types.js";
 import { isPreconditionFailed, type ObjectHeaders } from "../storage/types.js";
 import { claim, loadForWrite } from "./claim.js";
 import type { EngineContext } from "./context.js";
+import { isOwnVersionObject } from "./evidence.js";
 import { syncLive } from "./live.js";
 import { promote } from "./promote.js";
 import { assertLeaseHeld, runClaimed } from "./run-claimed.js";
@@ -57,7 +58,7 @@ export async function put(ctx: EngineContext, rawKey: string, data: Uint8Array |
   try {
     rev = await claim(ctx, key, manifest, loaded.rev, op);
   } catch (e) {
-    await ctx.store.delete(objectKey).catch(() => undefined);
+    if (isOwnVersionObject(ctx, key, objectKey)) await ctx.store.delete(objectKey).catch(() => undefined);
     throw e;
   }
 

@@ -1,6 +1,7 @@
 import { ConcurrencyConflictError, OperationIncompleteError } from "../errors.js";
 import type { Manifest, PendingOp } from "../meta/types.js";
 import type { EngineContext } from "./context.js";
+import { isOwnVersionObject } from "./evidence.js";
 import { commit } from "./manifest.js";
 import { recover } from "./recover.js";
 
@@ -76,8 +77,9 @@ async function abandon(ctx: EngineContext, key: string, claim: Claim): Promise<v
     return; // leave the claim; recovery will roll it back once the lease expires
   }
   // Only a put owns its version object; restores share theirs with an older version.
-  if (claim.op.type === "put" && claim.op.record.objectKey) {
-    await ctx.store.delete(claim.op.record.objectKey).catch(() => undefined);
+  const objectKey = claim.op.record.objectKey;
+  if (claim.op.type === "put" && objectKey && isOwnVersionObject(ctx, key, objectKey)) {
+    await ctx.store.delete(objectKey).catch(() => undefined);
   }
 }
 
