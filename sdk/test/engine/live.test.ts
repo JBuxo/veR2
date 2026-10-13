@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { syncLive } from "../../src/engine/live.js";
 import { ConcurrencyConflictError } from "../../src/errors.js";
 import { emptyManifest } from "../../src/meta/types.js";
-import { KEY, setup, text } from "../helpers.js";
+import { StoreError } from "../../src/storage/types.js";
+import { crashOn, KEY, setup, text } from "../helpers.js";
 
 describe("syncLive", () => {
   it("leaves a manifest alone when live matches", async () => {
@@ -45,6 +46,43 @@ describe("syncLive", () => {
       if (op === "copy" && phase === "before") {
         t.store.fault = undefined;
         t.store.putDirect(KEY, "second");
+      }
+    };
+    await expect(syncLive(t.ctx, KEY, emptyManifest(KEY), live)).rejects.toBeInstanceOf(ConcurrencyConflictError);
+  });
+
+  it("treats a live object deleted during the adoption copy as a conflict", async () => {
+    const t = setup();
+    t.store.putDirect(KEY, "first");
+    const live = await t.store.head(KEY);
+    t.store.fault = (op, _key, phase) => {
+      if (op === "copy" && phase === "before") {
+        t.store.fault = undefined;
+        t.store.objects.delete(KEY);
+      }
+    };
+    await expect(syncLive(t.ctx, KEY, emptyManifest(KEY), live)).rejects.toBeInstanceOf(ConcurrencyConflictError);
+  });
+
+  it("treats a 412 on an adoption copy that already landed as success", async () => {
+    const t = setup();
+    t.store.putDirect(KEY, "direct", { contentType: "text/plain", metadata: { a: "1" } });
+    const live = await t.store.head(KEY);
+    crashOn(t.store, (op, _key, phase) => op === "copy" && phase === "after", 1, new StoreError("precondition-failed", "retry saw 412", 412));
+    const next = await syncLive(t.ctx, KEY, emptyManifest(KEY), live);
+    const [record] = next.versions;
+    expect(record).toMatchObject({ kind: "put", source: "external", size: 6, etag: live?.etag });
+    expect(next).toMatchObject({ current: record?.versionId, liveEtag: live?.etag });
+  });
+
+  it("refuses an adoption copy whose 412 came from a different object at the version key", async () => {
+    const t = setup();
+    t.store.putDirect(KEY, "direct");
+    const live = await t.store.head(KEY);
+    t.store.fault = (op, key, phase) => {
+      if (op === "copy" && phase === "before") {
+        t.store.fault = undefined;
+        t.store.putDirect(key, "not the live bytes");
       }
     };
     await expect(syncLive(t.ctx, KEY, emptyManifest(KEY), live)).rejects.toBeInstanceOf(ConcurrencyConflictError);
