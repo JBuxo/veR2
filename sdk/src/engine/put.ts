@@ -2,10 +2,9 @@ import { sha256Hex, toBytes } from "../hash.js";
 import { canonicalKey } from "../keys.js";
 import type { PendingOp, VersionRecord } from "../meta/types.js";
 import { isPreconditionFailed, type ObjectHeaders } from "../storage/types.js";
-import { loadForWrite } from "./claim.js";
+import { claim, loadForWrite } from "./claim.js";
 import type { EngineContext } from "./context.js";
 import { syncLive } from "./live.js";
-import { commit } from "./manifest.js";
 import { promote } from "./promote.js";
 import { runClaimed } from "./run-claimed.js";
 
@@ -50,7 +49,7 @@ export async function put(ctx: EngineContext, rawKey: string, data: Uint8Array |
     expectedLiveEtag: live?.etag ?? null,
     startedAt: ctx.now().toISOString(),
   };
-  const rev = await commit(ctx, key, { ...manifest, pending: op }, loaded.rev);
+  const rev = await claim(ctx, key, manifest, loaded.rev, op);
 
   const { liveEtag } = await runClaimed(
     ctx,
