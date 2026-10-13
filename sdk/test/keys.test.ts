@@ -50,3 +50,53 @@ describe("validateNamespace", () => {
     expect(() => validateNamespace(ns)).toThrow(ConfigurationError);
   });
 });
+
+describe("canonicalKey hardening", () => {
+  it.each([
+    ["NUL", String.fromCharCode(0)],
+    ["tab", String.fromCharCode(9)],
+    ["newline", String.fromCharCode(10)],
+    ["CR", String.fromCharCode(13)],
+    ["DEL", String.fromCharCode(0x7f)],
+  ])("rejects a control character (%s)", (_n, c) => {
+    expect(() => canonicalKey(`a${c}b`, policy)).toThrow(/control character/);
+  });
+
+  it("allows backslash (round-trips on R2)", () => {
+    const k = "a" + String.fromCharCode(92) + "b";
+    expect(canonicalKey(k, policy)).toBe(k);
+  });
+
+  it("accepts a valid surrogate pair", () => {
+    const k = `pkg-${String.fromCodePoint(0x1f4e6)}.txt`;
+    expect(canonicalKey(k, policy)).toBe(k);
+  });
+
+  it("scopes the reserved namespace to a nested prefix", () => {
+    const nested = { namespace: "tenants/acme/.ver2" };
+    expect(() => canonicalKey("tenants/acme/.ver2/x", nested)).toThrow(InvalidKeyError);
+    expect(canonicalKey("tenants/acme/x", nested)).toBe("tenants/acme/x");
+  });
+
+  it("measures the byte limit after NFC", () => {
+    const max = maxKeyBytes(policy);
+    const enc = new TextEncoder();
+    const combo = "e" + String.fromCharCode(0x301); // NFC: 2 bytes; NFD: 3 bytes
+    let key = combo.repeat(Math.floor(max / 2));
+    key += "a".repeat(max - enc.encode(key.normalize("NFC")).length);
+    expect(enc.encode(key.normalize("NFC")).length).toBe(max);
+    expect(enc.encode(key).length).toBeGreaterThan(max);
+    expect(canonicalKey(key, policy)).toBe(key.normalize("NFC"));
+  });
+});
+
+describe("validateNamespace hardening", () => {
+  it.each([
+    ["lone surrogate", "a" + String.fromCharCode(0xd800) + "b"],
+    ["control character", "a" + String.fromCharCode(1) + "b"],
+    ["non-NFC", "cafe" + String.fromCharCode(0x301)],
+    ["too long to leave room for keys", "a".repeat(1100)],
+  ])("rejects %s", (_n, ns) => {
+    expect(() => validateNamespace(ns)).toThrow(ConfigurationError);
+  });
+});

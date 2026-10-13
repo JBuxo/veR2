@@ -20,4 +20,19 @@ describe("ulid", () => {
     const ids = new Set(Array.from({ length: 1000 }, () => ulid()));
     expect(ids.size).toBe(1000);
   });
+
+  it.each([-1, NaN, 2.5, 2 ** 48, Infinity])("rejects invalid time %s", (now) => {
+    expect(() => ulid(now)).toThrow(RangeError);
+  });
+
+  it("rejects short randomness", () => {
+    expect(() => ulid(0, () => new Uint8Array(15))).toThrow(RangeError);
+  });
+
+  it("encodes the time prefix so it decodes back", () => {
+    const now = 1_760_000_000_000;
+    const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    const decoded = [...ulid(now).slice(0, 10)].reduce((acc, ch) => acc * 32 + alphabet.indexOf(ch), 0);
+    expect(decoded).toBe(now);
+  });
 });

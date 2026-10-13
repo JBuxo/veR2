@@ -29,4 +29,22 @@ describe("hash", () => {
     const out = streamOf("abd").pipeThrough(verifyingStream(ABC, (actual) => new Error(`got ${actual}`)));
     await expect(sha256OfStream(out)).rejects.toThrow(/^got [0-9a-f]{64}$/);
   });
+
+  it("hashes an empty stream", async () => {
+    expect(await sha256OfStream(streamOf())).toEqual({
+      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      size: 0,
+    });
+  });
+
+  it("verifyingStream passes the bytes through unchanged", async () => {
+    const reader = streamOf("ab", "c").pipeThrough(verifyingStream(ABC, () => new Error("mismatch"))).getReader();
+    const chunks: number[] = [];
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(...value);
+    }
+    expect(new TextDecoder().decode(new Uint8Array(chunks))).toBe("abc");
+  });
 });
