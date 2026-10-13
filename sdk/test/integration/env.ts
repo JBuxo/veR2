@@ -28,7 +28,7 @@ export async function cleanup(store: ObjectStore, prefix: string): Promise<void>
   let cursor: string | undefined;
   do {
     const page = await store.list(prefix, { cursor });
-    for (const key of page.keys) await store.delete(key);
+    await Promise.all(page.keys.map((key) => store.delete(key)));
     cursor = page.cursor;
   } while (cursor);
 }

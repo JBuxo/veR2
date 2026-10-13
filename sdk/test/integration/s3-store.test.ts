@@ -5,6 +5,6 @@ import { cleanup, hasR2, makeS3Store, runPrefix } from "./env.js";
 
 describe.skipIf(!hasR2)("S3ObjectStore against R2", () => {
   const store = hasR2 ? makeS3Store() : (undefined as unknown as S3ObjectStore);
-  afterAll(() => cleanup(store, runPrefix));
+  afterAll(() => cleanup(store, runPrefix), 120_000);
   objectStoreContract("s3 (R2)", () => ({ store, prefix: runPrefix }));
 });
