@@ -41,5 +41,12 @@ describe("isOwnVersionObject", () => {
     expect(isOwnVersionObject(ctx, "a.txt", "a.txt")).toBe(false);
     expect(isOwnVersionObject(ctx, "a.txt", "precious.txt")).toBe(false);
     expect(isOwnVersionObject(ctx, "a.txt", ".ver2/m/a.txt")).toBe(false);
+    const prefix = ctx.paths.versionKey("a.txt", "");
+    expect(isOwnVersionObject(ctx, "a.txt", `${prefix}../../precious.txt`)).toBe(false);
+    expect(isOwnVersionObject(ctx, "a.txt", `${prefix}v1/extra`)).toBe(false);
+    expect(isOwnVersionObject(ctx, "a.txt", `${prefix}v.1`)).toBe(false);
+    expect(isOwnVersionObject(ctx, "a.txt", prefix)).toBe(false);
+    expect(isOwnVersionObject(ctx, "a.txt", `${prefix}${"A".repeat(27)}`)).toBe(false);
+    expect(isOwnVersionObject(ctx, "a.txt", `${prefix}01ARZ3NDEKTSV4RRFFQ69G5FAV`)).toBe(true);
   });
 });

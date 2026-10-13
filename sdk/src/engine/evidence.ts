@@ -22,5 +22,10 @@ export const sameContent = (a: ObjectInfo, b: ObjectInfo): boolean => a.etag ===
  * True when `objectKey` is one of `key`'s version objects. Check before deleting any key taken
  * from a manifest: a corrupt or hostile manifest must not be able to delete arbitrary objects.
  */
-export const isOwnVersionObject = (ctx: EngineContext, key: string, objectKey: string): boolean =>
-  objectKey.startsWith(ctx.paths.versionKey(key, ""));
+export function isOwnVersionObject(ctx: EngineContext, key: string, objectKey: string): boolean {
+  const prefix = ctx.paths.versionKey(key, "");
+  // Exactly one id segment: no "/", no dots, so R2's dot-segment resolution can't escape the prefix.
+  return objectKey.startsWith(prefix) && VERSION_ID.test(objectKey.slice(prefix.length));
+}
+
+const VERSION_ID = /^[0-9A-Za-z]{1,26}$/;
