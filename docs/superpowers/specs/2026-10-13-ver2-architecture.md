@@ -96,13 +96,13 @@ PendingOp  { opId, type: "put"|"delete"|"restore", record, expectedLiveEtag, sta
 
 **restore(key, vid):** steps 1–2, then pending `{restore}`, then promote the existing version object, then commit a new record with `source: restore` and `restoredFrom: vid`. No byte copy inside the history.
 
-**Retried-request ambiguity:** a retried conditional request can 412 because its first attempt already landed. Each 412 path re-checks the evidence: live ETag == version ETag, manifest bytes == what we wrote, version object exists with the expected size.
+**Retried-request ambiguity:** a retried conditional request can 412 because its first attempt already landed. Each 412 path re-checks the evidence: live has the version's content (same ETag **and** same headers; ETag alone misses header-only changes), manifest bytes == what we wrote, version object exists with the expected size.
 
 ## Recovery (evidence table)
 
 | Pending | Evidence | Outcome |
 |---|---|---|
-| put/restore | version object exists **and** live ETag == version ETag | roll forward (commit) |
+| put/restore | version object exists **and** live has the same content (ETag **and** headers) | roll forward (commit) |
 | put/restore | live ETag == `expectedLiveEtag` | roll back (clear; delete orphan if put) |
 | delete | live absent | roll forward |
 | delete | live ETag == `expectedLiveEtag` | roll back |
@@ -135,4 +135,7 @@ PendingOp  { opId, type: "put"|"delete"|"restore", record, expectedLiveEtag, sta
 - Phase 1 buffers bodies in memory (single PUT, ≤ 5 GiB). Streaming arrives in Phase 2.
 - A key's whole history lives in one manifest object that is read and CAS-rewritten about twice per write. At roughly 300–400 bytes per version, 10k versions is about 4 MB per round trip. Latency and the conflict window grow linearly with history length. Before GA: retention/pruning (Phase 5) and, if needed, segmented history (a small head manifest plus immutable history chunks).
 - Manifest revisions are content-derived (ETags), so CAS compares contents, not versions. Exclusivity comes from the unique `opId` in each claim, not from a write succeeding.
+- A corrupt or unsupported-schema manifest raises `MANIFEST_INVALID` for that key. Phase 1 has no automated repair: the version objects are intact, but the manifest must be fixed or removed by hand (`ver2 meta rebuild` from version objects is Phase 3).
+- Lease expiry compares the local clock with a `startedAt` written by another client. Clock skew can make an in-flight op look crashed early, or make a crashed one wait longer. The CAS write and the copy guards keep this safe; it only affects liveness.
+- Unreferenced objects can accumulate: adoption copies made before a lost claim, and version objects of ops that were abandoned without cleanup. They are harmless; Phase 5 GC collects them.
 - A claim whose PUT landed but whose response was lost leaves a "ghost" lock. Retries see `ConcurrencyConflict` until the lease (60 s) expires and recovery rolls it back.
