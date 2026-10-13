@@ -133,3 +133,6 @@ PendingOp  { opId, type: "put"|"delete"|"restore", record, expectedLiveEtag, sta
 - Direct writes are preserved on the next veR2 write to that key, unless another direct write overwrites them first.
 - ~5–6 R2 requests per `put`. R2 allows roughly 1 write/s per key (manifest + live), so hot keys see 429s.
 - Phase 1 buffers bodies in memory (single PUT, ≤ 5 GiB). Streaming arrives in Phase 2.
+- A key's whole history lives in one manifest object that is read and CAS-rewritten about twice per write. At roughly 300–400 bytes per version, 10k versions is about 4 MB per round trip. Latency and the conflict window grow linearly with history length. Before GA: retention/pruning (Phase 5) and, if needed, segmented history (a small head manifest plus immutable history chunks).
+- Manifest revisions are content-derived (ETags), so CAS compares contents, not versions. Exclusivity comes from the unique `opId` in each claim, not from a write succeeding.
+- A claim whose PUT landed but whose response was lost leaves a "ghost" lock. Retries see `ConcurrencyConflict` until the lease (60 s) expires and recovery rolls it back.
