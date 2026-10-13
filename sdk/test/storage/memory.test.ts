@@ -7,6 +7,14 @@ const enc = (s: string) => new TextEncoder().encode(s);
 objectStoreContract("memory", () => ({ store: new MemoryObjectStore(), prefix: "" }));
 
 describe("MemoryObjectStore extras", () => {
+  it("treats a non-finite list limit as 1000", async () => {
+    const store = new MemoryObjectStore();
+    for (let i = 0; i < 3; i++) await store.put(`k${i}`, enc("x"));
+    for (const limit of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect((await store.list("", { limit })).keys).toHaveLength(3);
+    }
+  });
+
   it("runs fault hooks before and after each operation", async () => {
     const calls: string[] = [];
     const store = new MemoryObjectStore({ fault: (op, key, phase) => void calls.push(`${op}:${key}:${phase}`) });

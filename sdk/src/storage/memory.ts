@@ -60,6 +60,7 @@ export class MemoryObjectStore implements ObjectStore {
   private callFault(op: StoreOp, key: string, phase: "before" | "after"): void {
     const r: unknown = this.fault?.(op, key, phase);
     if (r !== null && typeof r === "object" && typeof (r as { then?: unknown }).then === "function") {
+      (r as Promise<unknown>).then(undefined, () => {}); // avoid an unhandled rejection from the discarded promise
       throw new Error("FaultHook must be synchronous");
     }
   }
@@ -133,7 +134,7 @@ export class MemoryObjectStore implements ObjectStore {
   list(prefix: string, options: { cursor?: string; limit?: number } = {}): Promise<ListResult> {
     return this.run("list", prefix, () => {
       const after = options.cursor;
-      const limit = Math.min(1000, Math.max(1, Math.trunc(options.limit ?? 1000))); // R2 caps pages at 1000
+      const limit = Math.min(1000, Math.max(1, Math.trunc(Number.isFinite(options.limit ?? 1000) ? (options.limit ?? 1000) : 1000))); // R2 caps pages at 1000
       const keys = [...this.objects.keys()].filter((k) => k.startsWith(prefix) && (after === undefined || k > after)).sort();
       const page = keys.slice(0, limit);
       return { keys: page, cursor: keys.length > limit ? page[page.length - 1] : undefined };
