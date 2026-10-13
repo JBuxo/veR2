@@ -10,8 +10,11 @@ function tsFiles(dir: string): string[] {
   );
 }
 
+// Specifier must end at the builtin name or continue with "/", so "url-template" is not flagged.
+export const NODE_IMPORT = /(from|import)\s*\(?\s*(["'])(node:[^"']+|fs|path|crypto|os|stream|http|https|url|util|child_process|zlib|net|tls|events|buffer)(\/[^"']*)?\2/;
+
 const forbidden: [string, RegExp][] = [
-  ["node builtin import", /(from|import\s*\()\s*["'](node:|fs|path|crypto|os|stream|http|https|url|util|child_process|zlib|net|tls|events|buffer)\b/],
+  ["node builtin import", NODE_IMPORT],
   ["require(", /require\(/],
   ["Buffer", /\bBuffer\b/],
   ["process.", /\bprocess\./],
@@ -35,5 +38,19 @@ describe("sdk/src is runtime-agnostic", () => {
     for (const [label, re] of forbidden) {
       expect(re.test(text), `${file} uses ${label}`).toBe(false);
     }
+  });
+});
+
+describe("node import scanner", () => {
+  it.each([
+    'import "node:fs";',
+    'import x from "fs/promises";',
+    'const m = await import("node:path");',
+  ])("flags %s", (code) => {
+    expect(NODE_IMPORT.test(code)).toBe(true);
+  });
+
+  it.each(['import x from "url-template";', 'import x from "./fs.js";'])("does not flag %s", (code) => {
+    expect(NODE_IMPORT.test(code)).toBe(false);
   });
 });

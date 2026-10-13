@@ -144,5 +144,55 @@ export function objectStoreContract(name: string, setup: () => ContractTarget) {
       expect(second.keys).toEqual([`${base}c`]);
       expect(second.cursor).toBeUndefined();
     });
+
+    it("copy destIfMatch onto an absent destination fails and writes nothing", async () => {
+      const { store, prefix } = setup();
+      const src = `${prefix}contract/dm-absent-src`;
+      const dst = `${prefix}contract/dm-absent-dst`;
+      const { etag } = await store.put(src, enc("SOURCE"));
+      expect(await failure(store.copy(src, dst, { destIfMatch: etag }))).toBe("precondition-failed");
+      expect(await store.head(dst)).toBeNull();
+    });
+
+    it("get with ifMatch on a missing key returns null", async () => {
+      const { store, prefix } = setup();
+      expect(await store.get(`${prefix}contract/get-missing-cond`, { ifMatch: BOGUS })).toBeNull();
+    });
+
+    it("a metadata-only rewrite keeps the etag", async () => {
+      const { store, prefix } = setup();
+      const k = `${prefix}contract/meta-only`;
+      const a = await store.put(k, enc("same bytes"), { headers: { contentType: "text/plain" } });
+      const b = await store.put(k, enc("same bytes"), { headers: { contentType: "text/html", metadata: { x: "1" } } });
+      expect(b.etag).toBe(a.etag);
+      expect((await store.head(k))?.headers).toMatchObject({ contentType: "text/html", metadata: { x: "1" } });
+    });
+
+    it("a put without headers replaces earlier headers instead of merging", async () => {
+      const { store, prefix } = setup();
+      const k = `${prefix}contract/replace-headers`;
+      await store.put(k, enc("one"), { headers: { cacheControl: "max-age=60", metadata: { owner: "ver2" } } });
+      await store.put(k, enc("two"));
+      const headers = (await store.head(k))?.headers;
+      expect(headers?.cacheControl).toBeUndefined();
+      expect(headers?.metadata ?? {}).toEqual({});
+    });
+
+    it("get returns headers in info", async () => {
+      const { store, prefix } = setup();
+      const k = `${prefix}contract/get-headers`;
+      await store.put(k, enc("h"), { headers: { contentType: "text/plain", metadata: { a: "b" } } });
+      const res = await store.get(k);
+      expect(res?.info.headers).toMatchObject({ contentType: "text/plain", metadata: { a: "b" } });
+      await res!.body.cancel();
+    });
+
+    it("list excludes siblings that merely share the string prefix", async () => {
+      const { store, prefix } = setup();
+      const base = `${prefix}contract/sib/`;
+      await store.put(`${base}in`, enc("in"));
+      await store.put(`${prefix}contract/sib2/out`, enc("out"));
+      expect((await store.list(base)).keys).toEqual([`${base}in`]);
+    });
   });
 }

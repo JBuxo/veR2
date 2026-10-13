@@ -45,4 +45,26 @@ describe("MemoryObjectStore extras", () => {
     store.fault = undefined;
     expect((await store.head("k"))?.etag).toBe(etag);
   });
+
+  it("rejects an async fault hook loudly", async () => {
+    const store = new MemoryObjectStore({ fault: (async () => {}) as never });
+    await expect(store.put("k", enc("x"))).rejects.toThrow("FaultHook must be synchronous");
+  });
+
+  it("clamps list limits: 0 behaves like 1 and still returns a cursor", async () => {
+    const store = new MemoryObjectStore();
+    for (const n of ["a", "b"]) await store.put(n, enc(n));
+    const page = await store.list("", { limit: 0 });
+    expect(page.keys).toEqual(["a"]);
+    expect(page.cursor).toBe("a");
+  });
+
+  it("does not expose stored timestamps to mutation", async () => {
+    const store = new MemoryObjectStore();
+    await store.put("k", enc("x"));
+    const first = (await store.head("k"))!;
+    const t = first.lastModified.getTime();
+    first.lastModified.setFullYear(1999);
+    expect((await store.head("k"))!.lastModified.getTime()).toBe(t);
+  });
 });

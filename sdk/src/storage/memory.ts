@@ -30,10 +30,16 @@ const etagOf = (bytes: Uint8Array) => `"${sha256Hex(bytes).slice(0, 32)}"`;
 const precondition = (key: string) => new StoreError("precondition-failed", `precondition failed for ${key}`, 412);
 
 function info(key: string, e: Entry): ObjectInfo {
-  return { key, etag: e.etag, size: e.bytes.byteLength, lastModified: e.lastModified, headers: structuredClone(e.headers) };
+  return { key, etag: e.etag, size: e.bytes.byteLength, lastModified: new Date(e.lastModified), headers: structuredClone(e.headers) };
 }
 
-/** In-memory ObjectStore with R2's verified semantics plus fault injection. For tests and local experiments. */
+/**
+ * In-memory ObjectStore with R2's verified semantics plus fault injection. For tests and local experiments.
+ *
+ * Known gaps: list order is JS UTF-16 code-unit order, while R2 uses UTF-8 byte order (they differ only for
+ * supplementary characters vs U+E000-U+FFFF). NFC/NFD key equivalence is not modeled because `canonicalKey`
+ * normalizes keys before any I/O.
+ */
 export class MemoryObjectStore implements ObjectStore {
   readonly objects = new Map<string, Entry>();
   fault: FaultHook | undefined;
@@ -50,10 +56,18 @@ export class MemoryObjectStore implements ObjectStore {
     return etag;
   }
 
+  // The hook stays synchronous so conditional operations remain atomic; an async hook would silently not be awaited.
+  private callFault(op: StoreOp, key: string, phase: "before" | "after"): void {
+    const r: unknown = this.fault?.(op, key, phase);
+    if (r !== null && typeof r === "object" && typeof (r as { then?: unknown }).then === "function") {
+      throw new Error("FaultHook must be synchronous");
+    }
+  }
+
   private async run<T>(op: StoreOp, key: string, fn: () => T): Promise<T> {
-    this.fault?.(op, key, "before");
+    this.callFault(op, key, "before");
     const result = fn();
-    this.fault?.(op, key, "after");
+    this.callFault(op, key, "after");
     return result;
   }
 
@@ -119,7 +133,7 @@ export class MemoryObjectStore implements ObjectStore {
   list(prefix: string, options: { cursor?: string; limit?: number } = {}): Promise<ListResult> {
     return this.run("list", prefix, () => {
       const after = options.cursor;
-      const limit = options.limit ?? 1000;
+      const limit = Math.min(1000, Math.max(1, Math.trunc(options.limit ?? 1000))); // R2 caps pages at 1000
       const keys = [...this.objects.keys()].filter((k) => k.startsWith(prefix) && (after === undefined || k > after)).sort();
       const page = keys.slice(0, limit);
       return { keys: page, cursor: keys.length > limit ? page[page.length - 1] : undefined };
