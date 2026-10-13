@@ -1,5 +1,6 @@
 import type { S3Client } from "@aws-sdk/client-s3";
 import { describe, expect, it } from "vitest";
+import { ConfigurationError } from "../../src/errors.js";
 import { S3ObjectStore } from "../../src/storage/s3.js";
 import { StoreError } from "../../src/storage/types.js";
 
@@ -41,6 +42,9 @@ describe("S3ObjectStore error mapping", () => {
     ["TimeoutError", named("TimeoutError")],
     ["AbortError", named("AbortError")],
     ["ECONNRESET", Object.assign(new Error("reset"), { code: "ECONNRESET" })],
+    ["EHOSTUNREACH", Object.assign(new Error("x"), { code: "EHOSTUNREACH" })],
+    ["ENETUNREACH", Object.assign(new Error("x"), { code: "ENETUNREACH" })],
+    ["ERR_STREAM_PREMATURE_CLOSE", Object.assign(new Error("x"), { code: "ERR_STREAM_PREMATURE_CLOSE" })],
     ["retryable", Object.assign(new Error("x"), { $retryable: {} })],
   ])("no response (%s) maps to network", async (_n, err) => {
     const e = await kindOf(failing(err).head("k"));
@@ -73,6 +77,21 @@ describe("S3ObjectStore endpoint guard", () => {
   it("accepts R2 endpoints, including jurisdictions", () => {
     expect(mk({ endpoint: "https://x.eu.r2.cloudflarestorage.com" })).not.toThrow();
     expect(mk({ accountId: "abc" })).not.toThrow();
+  });
+  it("throws ConfigurationError for a malformed endpoint", () => {
+    expect(mk({ endpoint: "not a url" })).toThrow(ConfigurationError);
+    expect(mk({ endpoint: "not a url", allowNonR2Endpoint: true })).toThrow(ConfigurationError);
+  });
+  it("installs the timeout defaults on the request handler", async () => {
+    const store = mk({ accountId: "abc" })();
+    const client = (store as unknown as { client: S3Client }).client;
+    // The handler resolves its options asynchronously; configProvider is the promise of the resolved config.
+    const handler = client.config.requestHandler as unknown as { configProvider: Promise<object> };
+    expect(await handler.configProvider).toMatchObject({
+      throwOnRequestTimeout: true,
+      requestTimeout: 60_000,
+      connectionTimeout: 10_000,
+    });
   });
   it("allows opting out", () => {
     expect(mk({ endpoint: "http://localhost:9000", allowNonR2Endpoint: true })).not.toThrow();

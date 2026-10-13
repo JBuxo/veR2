@@ -33,7 +33,11 @@ export interface S3StoreOptions {
   client?: S3Client;
   /** Total attempts per request (default 3). */
   maxAttempts?: number;
-  /** Per-request timeout in ms (default 60000). */
+  /**
+   * Per-request timeout in ms (default 60000). The timer also covers uploading the request body, so a large single
+   * PUT on a slow link can exceed it; Phase 1 buffers bodies, so raise it for large objects. Once response headers
+   * arrive there is no idle timeout on the body stream.
+   */
   requestTimeoutMs?: number;
   /** Connection timeout in ms (default 10000). */
   connectionTimeoutMs?: number;
@@ -73,7 +77,7 @@ function toInfo(key: string, res: HeadLike): ObjectInfo {
   };
 }
 
-const NETWORK_CODES = new Set(["ECONNRESET", "ETIMEDOUT", "EPIPE", "ENOTFOUND", "ECONNREFUSED", "EAI_AGAIN", "ECONNABORTED"]);
+const NETWORK_CODES = new Set(["ECONNRESET", "ETIMEDOUT", "EPIPE", "ENOTFOUND", "ECONNREFUSED", "EAI_AGAIN", "ECONNABORTED", "EHOSTUNREACH", "ENETUNREACH", "ERR_STREAM_PREMATURE_CLOSE"]);
 
 /** R2 HEAD errors carry no error code, so classify by HTTP status. No status means no HTTP response: network. */
 function toStoreError(op: string, key: string, e: unknown): StoreError {
@@ -125,7 +129,13 @@ export class S3ObjectStore implements ObjectStore {
     const endpoint =
       options.endpoint ?? (options.accountId ? `https://${options.accountId}.r2.cloudflarestorage.com` : undefined);
     if (!endpoint) throw new ConfigurationError("S3ObjectStore: endpoint or accountId is required");
-    if (!options.allowNonR2Endpoint && !new URL(endpoint).hostname.endsWith(".r2.cloudflarestorage.com")) {
+    let hostname: string;
+    try {
+      hostname = new URL(endpoint).hostname;
+    } catch {
+      throw new ConfigurationError(`S3ObjectStore: endpoint is not a valid URL: ${JSON.stringify(endpoint)}`);
+    }
+    if (!options.allowNonR2Endpoint && !hostname.endsWith(".r2.cloudflarestorage.com")) {
       throw new ConfigurationError(
         "S3ObjectStore: endpoint is not an R2 endpoint. veR2's guards rely on R2's cf-copy-destination-* headers, which other S3 implementations silently ignore. Set allowNonR2Endpoint: true to override.",
       );

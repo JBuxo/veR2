@@ -206,6 +206,9 @@ export function objectStoreContract(name: string, setup: () => ContractTarget) {
       const res = await store.get(b);
       expect(await text(res!.body)).toBe("special");
       expect((await store.list(dir)).keys).toEqual([a, b]);
+      // a guarded copy onto an existing special-char key must fail and leave it untouched
+      await expect(store.copy(a, b, { destIfNoneMatch: "*" })).rejects.toMatchObject({ kind: "precondition-failed" });
+      expect(await text((await store.get(b))!.body)).toBe("special");
     });
   });
 }
