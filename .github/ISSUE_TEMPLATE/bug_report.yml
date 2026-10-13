@@ -1,0 +1,48 @@
+name: Bug report
+description: Something veR2 did wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security issues:** don't file them here. See SECURITY.md.
+        **Never paste credentials**, bucket names you consider private, or object contents.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got. Include exact error codes (e.g. `CONCURRENCY_CONFLICT`) and messages.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Code or `ver2` commands that reproduce it.
+      render: shell
+    validations:
+      required: true
+  - type: dropdown
+    id: data
+    attributes:
+      label: Was version history lost or wrong?
+      options:
+        - "No"
+        - "Yes, history is missing or incorrect"
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: "@ver2/sdk 0.1.0, Node 24.11, runtime (Node/Workers/Bun)"
+    validations:
+      required: true
+  - type: dropdown
+    id: store
+    attributes:
+      label: Metadata store
+      options:
+        - Manifests in R2 (default)
+        - Other / custom
