@@ -40,7 +40,7 @@ R2 integration tests read the repo-root `.env.local` (`R2_ACCOUNT_ID`, `R2_BUCKE
 4. **Promotion is guarded.** Copy version → live with `cf-copy-destination-if-match` / `-if-none-match`. The standard `If-Match` on a copy destination is **ignored by R2**; don't use it.
 5. **Identity is SHA-256, not ETag.** ETags change on multipart copies and don't change on metadata-only edits.
 6. **Never guess.** If recovery can't prove the outcome from storage evidence, mark the op `stuck` and surface `OperationIncomplete`. Never retry a destructive step blindly.
-7. **Validate keys first.** Every public entry point runs `canonicalKey` (NFC, no `.`/`..` segments, not inside the namespace, length limit) before any I/O. R2 resolves dot segments, so an unvalidated key can write somewhere else.
+7. **Validate keys first.** Every public entry point runs `canonicalKey` (NFC, no lone surrogates, no C0/DEL control characters, no `.`/`..` segments, not inside the namespace, length limit) before any I/O. R2 resolves dot segments, so an unvalidated key can write somewhere else. Backslash is allowed: it round-trips on R2 through the S3 API, and storage drivers must percent-encode keys rather than building URLs with WHATWG parsing (which turns `\` into `/`).
 8. **`sdk/src` is runtime-agnostic.** No `node:*` imports. Use Web Streams, `Uint8Array`, `crypto.getRandomValues`, `@noble/hashes`. It must run in Workers later.
 9. **Storage behavior needs evidence.** Any new assumption about R2 (a header, a status code, a consistency property) needs a recorded observation against real R2 in `docs/research/r2-behavior.md`, plus a case in the `ObjectStore` contract suite.
 
