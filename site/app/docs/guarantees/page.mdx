@@ -1,0 +1,45 @@
+export const metadata = { title: "Guarantees and limitations" };
+
+# Guarantees and limitations
+
+veR2 guarantees what R2 lets it guarantee and documents the rest. Every assumption it makes about R2 (headers, status codes, consistency) was checked against real R2; the evidence is in [r2-behavior.md](https://github.com/JBuxo/ver2/blob/main/docs/research/r2-behavior.md).
+
+## At a glance
+
+| | Situation | What happens |
+|---|---|---|
+| ✅ | Concurrent veR2 writers to one key | Serialized; losers get `CONCURRENCY_CONFLICT` |
+| ✅ | A direct write racing a veR2 write | Detected; never silently clobbered |
+| ✅ | Crash mid-operation | Rolled forward or back from evidence, or flagged `OPERATION_INCOMPLETE` |
+| ✅ | Version integrity | SHA-256 verified on download |
+| ⚠️ | Direct deletes (outside veR2) | Can't be prevented or undone: R2 ignores delete conditions |
+| ⚠️ | Hot keys | R2 allows about 1 write/s per key; expect 429s on rapid rewrites |
+| ⚠️ | Large objects | Bodies are buffered in memory for now (single PUT, up to 5 GiB); streaming comes later |
+
+## Known limitations
+
+### Writes from outside veR2
+
+- **Direct deletes can't be stopped.** A `DeleteObject` sent straight to R2 (or a direct write racing veR2's own delete) removes the live object. The bytes of earlier veR2 versions are safe, but the deleted object's latest direct write may be lost if veR2 never saw it.
+- **Direct writes are kept on the next veR2 write**, unless another direct write overwrites them first. veR2 only notices them when it next writes that key.
+- **Header-only direct edits aren't detected.** Changing an object's headers without changing its bytes keeps the same ETag, so the next veR2 write replaces it without recording the edit.
+
+### Performance
+
+- **About 5–6 R2 requests per put**, and R2 allows roughly one write per second per key. Rewriting the same key rapidly produces 429s (`STORAGE_ERROR`, retryable).
+- **History lives in one manifest per key**, read and rewritten about twice per write. At roughly 300–400 bytes per version, 10,000 versions is about 4 MB per round trip, so latency grows with history length. Retention and pruning are planned.
+
+### Interrupted operations
+
+- **Network errors wait out the lease.** A request that fails without a response may still land, so veR2 leaves the operation pending and recovery waits for the lease (60 s) to expire. Meanwhile other writes to that key get `CONCURRENCY_CONFLICT`. Errors R2 actually answered are settled immediately.
+- **Lost claim responses leave a temporary lock.** If a claim landed but its response was lost, the key stays locked until the lease expires and recovery rolls it back.
+- **Clock skew affects timing, not safety.** Lease expiry compares your clock with a timestamp written by another client. Skew can make recovery act early or late; the compare-and-swap writes and copy guards keep it safe either way.
+- **veR2's own delete has a narrow race.** If a process stalls for longer than the whole lease between its final check and the `DELETE` request, the late delete can remove an object another writer committed in the meantime. The bytes remain in that version's object, and the next write records an `external` delete.
+- **Late server-side copies are adopted, not lost.** A slow copy (or one that lands after a timeout) can briefly leave live bytes the manifest doesn't know about. The next write records them as an `external` version.
+- **Multipart copies can't be proven.** Copying a multipart object changes its ETag, so after a lost response veR2 reports `CONCURRENCY_CONFLICT` rather than guessing.
+- **A 5xx on DELETE is treated as "didn't apply"** when the object is still there. If it applies later, history records an `external` delete instead of veR2's own.
+
+### Metadata
+
+- **A corrupt manifest blocks its key.** An unreadable manifest raises `MANIFEST_INVALID` for that key. Its version objects are intact, but for now the manifest has to be fixed or removed by hand. Rebuilding manifests from version objects is planned.
+- **Unreferenced objects can pile up.** Version objects from abandoned operations and adoption copies made before a lost claim are harmless leftovers. Garbage collection is planned.

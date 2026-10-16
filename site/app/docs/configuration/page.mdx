@@ -1,0 +1,58 @@
+export const metadata = { title: "Configuration" };
+
+# Configuration
+
+## Client options
+
+`createVer2(options)` (or `new Ver2(options)`) accepts:
+
+| Option | Default | Meaning |
+|---|---|---|
+| `store` | required | The object store: `S3ObjectStore` for R2, `MemoryObjectStore` for tests |
+| `meta` | manifests in the bucket | Where version metadata lives. The default stores manifests under the namespace, so only R2 credentials are needed |
+| `namespace` | `".ver2"` | Reserved key prefix for veR2's own objects |
+| `leaseMs` | `60000` | How long an in-flight operation holds a key before it is presumed crashed and recovery may settle it |
+| `now` | `() => new Date()` | Clock, for tests |
+| `newId` | ULID generator | Version and operation IDs, for tests. Must return unique ASCII IDs of at most 26 characters |
+
+```ts
+const ver2 = createVer2({ store, namespace: "_history", leaseMs: 120_000 });
+```
+
+### Namespace rules
+
+The namespace must be NFC-normalized and free of control characters and lone surrogates, made of non-empty segments separated by `/`, with no `.` or `..` segments, and short enough to leave room for keys within R2's 1024-byte limit. Keys inside the namespace are rejected with `INVALID_KEY`.
+
+<Note>
+Pick the namespace once. veR2 looks for history only under the configured namespace, so changing it later hides the history written under the old one.
+</Note>
+
+## R2 driver options
+
+`new S3ObjectStore(options)` from `@ver2/sdk/s3` accepts:
+
+| Option | Default | Meaning |
+|---|---|---|
+| `bucket` | required | Bucket name |
+| `accountId` | | Cloudflare account ID; the endpoint becomes `https://<accountId>.r2.cloudflarestorage.com` |
+| `endpoint` | derived | Explicit endpoint. EU-jurisdiction buckets use `https://<accountId>.eu.r2.cloudflarestorage.com` |
+| `credentials` | | `{ accessKeyId, secretAccessKey }` from an R2 API token |
+| `client` | | Bring your own `S3Client`. Overrides endpoint, credentials, retries and timeouts; you must set `requestChecksumCalculation` and `responseChecksumValidation` to `"WHEN_REQUIRED"`, which R2 needs |
+| `maxAttempts` | `3` | Total attempts per request |
+| `requestTimeoutMs` | `60000` | Per-request timeout, including uploading the body. Raise it for large objects on slow links |
+| `connectionTimeoutMs` | `10000` | Connection timeout |
+| `allowNonR2Endpoint` | `false` | veR2's guards rely on R2-specific copy headers that other S3 servers silently ignore, so non-R2 endpoints are refused unless you opt in |
+
+Either `accountId` or `endpoint` is required.
+
+## CLI environment
+
+The CLI reads these from the environment, then from `.env.local` and `.env` in the current directory:
+
+| Variable | Required | Meaning |
+|---|---|---|
+| `R2_ACCOUNT_ID` or `R2_ENDPOINT` | one of them | Where the bucket is |
+| `R2_BUCKET` | yes | Bucket name |
+| `R2_ACCESS_KEY_ID` | yes | API token access key ID |
+| `R2_SECRET_ACCESS_KEY` | yes | API token secret |
+| `VER2_NAMESPACE` | no | Overrides the `.ver2` namespace |

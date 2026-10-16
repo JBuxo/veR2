@@ -1,0 +1,68 @@
+export const metadata = { title: "How it works" };
+
+# How it works
+
+veR2 adds history to a bucket without moving anything. This page explains what it stores, how a write stays safe through crashes and races, and how it recovers.
+
+## What lives in the bucket
+
+```text
+your app ──► veR2 SDK ──► R2 bucket
+                            ├── uploads/a.png         live object (same key as always)
+                            ├── .ver2/o/…/<version>   immutable version bytes
+                            └── .ver2/m/uploads/a.png manifest: history + in-flight op journal
+readers ──────────────────► uploads/a.png   (unchanged: CDN, public URLs, presigned GETs)
+```
+
+- **Live objects** stay at their keys. veR2 never moves, renames or wraps them, so the read path doesn't change.
+- **Version objects** live at `.ver2/o/<sha256 of the key>/<versionId>`. Each is written once, with `If-None-Match: *` under a fresh ULID, and never overwritten.
+- **Manifests** live at `.ver2/m/<key>`. A manifest holds the key's full history and at most one *pending* operation, the journal entry for a write in flight.
+
+The `.ver2/` prefix is reserved: veR2 rejects keys inside it, and you can change it with the `namespace` option.
+
+## Every write is journaled
+
+A `put`, `delete` or `restore` runs in three steps:
+
+1. **Claim.** veR2 writes a `pending` operation into the manifest with a compare-and-swap. If another writer changed the manifest in the meantime, the claim fails with `CONCURRENCY_CONFLICT`. Concurrent veR2 writers to one key are serialized this way.
+2. **Storage work.** For a put, veR2 writes the bytes as a new version object, then promotes it to the live key.
+3. **Commit.** veR2 appends the version record to the history and clears `pending`, again with compare-and-swap.
+
+Nothing touches the live key before the claim is saved, so a crash at any point leaves a journal entry that recovery can act on.
+
+## Guarded promotion
+
+Promotion copies the version object onto the live key, server-side. It is guarded with R2's `cf-copy-destination-if-match` / `cf-copy-destination-if-none-match` headers, so the copy only lands if the live object is still what veR2 expects. (R2 ignores the standard `If-Match` on a copy destination, which is why veR2 uses the Cloudflare-specific headers.)
+
+## Direct writes are caught
+
+Other clients can still write to R2 directly. Before each write, veR2 compares the live object with what the manifest last recorded:
+
+- A **direct write** (a different ETag) is copied into a version object and recorded as an `external` version *before* veR2 overwrites it.
+- A **direct delete** is recorded as an `external` delete marker.
+
+A direct write that races veR2's own promote makes the guarded copy fail instead of being clobbered.
+
+## Deletes are logical
+
+Because every put already stored its bytes as a version object, a delete copies nothing. veR2 claims the operation, deletes the live object and appends a delete marker. R2 accepts no conditions on `DELETE`, so veR2 fences it: right before sending it, veR2 re-checks that its claim still holds and its lease is fresh.
+
+## Recovery from evidence
+
+If a writer crashes, its pending operation stays in the manifest. Once the operation's lease (60 seconds by default) has expired, any veR2 client can settle it, using only what's in storage:
+
+| Outcome | When |
+|---|---|
+| `rolled-forward` | The live object already has the new version's content: the commit is finished |
+| `rolled-back` | The live object is unchanged: the pending entry is cleared and the unused version object deleted |
+| `stuck` | The evidence doesn't prove either: nothing changes, and `OPERATION_INCOMPLETE` is reported |
+| `in-progress` | The lease hasn't expired: another writer may still be working |
+| `accepted-live` | With `acceptLive`: whatever is live now is adopted as a version |
+
+Recovery runs automatically before each write to a key. You can also run it yourself with `ver2 reconcile` or `ver2.recover(key)` / `ver2.recoverAll()`.
+
+veR2 never guesses. If it can't prove what happened, it says so instead of retrying a destructive step.
+
+## Identity is SHA-256, not ETag
+
+veR2 records a SHA-256 for every version and checks it on download. ETags aren't reliable identities on R2: they change when a multipart object is copied, and they don't change when only an object's headers are edited.
