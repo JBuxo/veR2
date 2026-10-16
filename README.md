@@ -1,4 +1,4 @@
-# veR2
+<h1 align="center"><img src="site/public/logo.svg" alt="veR2" height="72"></h1>
 
 **Object versioning for Cloudflare R2.** Add version history to an existing R2 bucket without changing how anything reads from it.
 
