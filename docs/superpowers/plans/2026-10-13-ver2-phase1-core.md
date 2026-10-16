@@ -3588,7 +3588,7 @@ git commit -m "feat(cli): add put, rm, ls, versions, restore, download and recon
 - Test: `sdk/test/integration/ver2.test.ts`
 - Create: `sdk/README.md`, `cli/README.md`
 
-- [ ] **Step 1: Integration test**
+- [x] **Step 1: Integration test**
 
 `sdk/test/integration/ver2.test.ts`:
 ```ts
@@ -3639,7 +3639,7 @@ describe.skipIf(!hasR2)("Ver2 against R2", () => {
 
 Run (with `.env.local`): `npm test -w @ver2/sdk -- integration` → Expected: contract (13) + Ver2 (3) passed.
 
-- [ ] **Step 2: Package READMEs**
+- [x] **Step 2: Package READMEs**
 
 `sdk/README.md`:
 ````markdown
@@ -3685,7 +3685,7 @@ ver2 reconcile --dry-run
 `ver2 --help` lists every command, option and exit code. Configuration is read from the environment or `.env.local`.
 ````
 
-- [ ] **Step 3: Full verification**
+- [x] **Step 3: Full verification**
 
 Run:
 ```bash
@@ -3695,7 +3695,7 @@ npm run build
 ```
 Expected: all exit 0; integration suites pass with credentials, skip without.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add sdk/test/integration/ver2.test.ts sdk/README.md cli/README.md
