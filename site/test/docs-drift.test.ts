@@ -37,3 +37,25 @@ describe("docs navigation", () => {
     expect(existsSync(join(root, "..", "sdk", "src", "errors.ts"))).toBe(true);
   });
 });
+
+describe("docs match the code", () => {
+  it("CLI reference documents every command and exit code", () => {
+    const src = readRepo("cli/src/commands.ts");
+    const commands = [...src.matchAll(/^ {2}async (\w+)\(/gm)].map((m) => m[1]);
+    expect(commands.length).toBeGreaterThan(5);
+    const exitSrc = readRepo("cli/src/types.ts").match(/export const EXIT = \{([^}]+)\}/)?.[1] ?? "";
+    const codes = [...exitSrc.matchAll(/(\w+): (\d+)/g)].map((m) => m[2]);
+    expect(codes).toEqual(["0", "1", "2", "3", "4", "5"]);
+    const page = readDoc("cli-reference");
+    for (const c of commands) expect(page, `command ${c}`).toContain(`ver2 ${c}`);
+    for (const code of codes) expect(page, `exit code ${code}`).toMatch(new RegExp(`\|\s*\`?${code}\`?\s*\|`));
+  });
+
+  it("errors page documents every error code", () => {
+    const union = readRepo("sdk/src/errors.ts").match(/export type Ver2ErrorCode =([^;]+);/)?.[1] ?? "";
+    const codes = [...union.matchAll(/"([A-Z_]+)"/g)].map((m) => m[1]);
+    expect(codes.length).toBeGreaterThan(5);
+    const page = readDoc("errors");
+    for (const code of codes) expect(page, `error ${code}`).toContain(`\`${code}\``);
+  });
+});

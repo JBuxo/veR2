@@ -1,0 +1,49 @@
+export const metadata = { title: "Errors" };
+
+# Errors
+
+Every error veR2 throws on purpose is a `Ver2Error` subclass with a stable `code`. Switch on `code`, not on class names or messages:
+
+```ts
+import { Ver2Error } from "@ver2/sdk";
+
+try {
+  await ver2.put(key, bytes);
+} catch (e) {
+  if (!(e instanceof Ver2Error)) throw e;
+  switch (e.code) {
+    case "CONCURRENCY_CONFLICT":
+      // another writer got there first: re-read and retry
+      break;
+    case "OPERATION_INCOMPLETE":
+      // run recovery (ver2 reconcile, or ver2.recover(key))
+      break;
+    default:
+      throw e;
+  }
+}
+```
+
+`e.details` carries structured context where it applies: `key`, `versionId`, `reason`, `opId`, or `status` and `retryable` for storage errors. Messages never include credentials.
+
+## Error codes
+
+| Code | Meaning | What to do |
+|---|---|---|
+| `INVALID_KEY` | The key failed validation: a `.` or `..` segment, a control character, a lone surrogate, a key inside the reserved namespace, or a key too long for R2 | Fix the key. veR2 checks keys before any I/O because R2 resolves dot segments, so an unchecked key could write somewhere else |
+| `OBJECT_NOT_FOUND` | There is no current object for the key (never written, or deleted) | Check the key, or download a specific version from the history |
+| `VERSION_NOT_FOUND` | No restorable version with that ID exists for the key (unknown ID, or a delete marker) | List the versions and pick a `put` version |
+| `CONCURRENCY_CONFLICT` | Another writer changed the key during the operation | Retry. veR2 serializes writers to one key; the loser gets this error |
+| `INTEGRITY_CHECK_FAILED` | Downloaded bytes don't match the SHA-256 recorded for that version, or the version object was replaced | Don't use the data. The stream errors at the end, so treat partial output as untrusted |
+| `OPERATION_INCOMPLETE` | An operation was interrupted and veR2 couldn't prove from storage whether it finished | Run `ver2 reconcile` (or `ver2.recover(key)`). If it reports `stuck`, inspect the key and use `--accept-live` to keep what's there now |
+| `CONFIGURATION_ERROR` | Invalid options: a bad namespace, missing bucket or endpoint, a non-R2 endpoint, or missing CLI environment variables | Fix the configuration; the message lists what's wrong |
+| `MANIFEST_INVALID` | The key's manifest is unreadable or has an unsupported schema | The version objects are intact, but the manifest must be repaired or removed by hand for now. Automated rebuild from version objects is planned |
+| `STORAGE_ERROR` | An R2 request failed | Check `retryable`: it is `true` for rate limiting (429), network errors and 5xx responses, so back off and retry; otherwise inspect `status` and the message |
+
+## Storage errors and retries
+
+R2 allows roughly one write per second to the same key. Rapid rewrites of a hot key return 429s, which surface as `STORAGE_ERROR` with `retryable: true`. veR2's S3 driver already retries each request (3 attempts by default, see [Configuration](/docs/configuration/)); a retryable error reaching your code means those attempts ran out.
+
+## In the CLI
+
+The CLI maps error codes to [exit codes](/docs/cli-reference/#exit-codes): `INVALID_KEY` and `CONFIGURATION_ERROR` exit 2, `CONCURRENCY_CONFLICT` exits 3, `OPERATION_INCOMPLETE` exits 4, `INTEGRITY_CHECK_FAILED` exits 5, and everything else exits 1. With `--json`, the code is in `error.code` on stderr.

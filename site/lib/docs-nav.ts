@@ -9,4 +9,6 @@ export const docsNav: DocsNavItem[] = [
   { title: "Installation", href: "/docs/installation/" },
   { title: "Quickstart: SDK", href: "/docs/quickstart-sdk/" },
   { title: "Quickstart: CLI", href: "/docs/quickstart-cli/" },
+  { title: "CLI reference", href: "/docs/cli-reference/" },
+  { title: "Errors", href: "/docs/errors/" },
 ];
