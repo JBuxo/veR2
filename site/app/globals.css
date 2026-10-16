@@ -128,3 +128,15 @@
     @apply font-sans;
   }
 }
+@plugin "@tailwindcss/typography";
+
+/* Shiki dual themes: rehype-pretty-code (MDX) and codeToHtml (landing) both emit --shiki-light/--shiki-dark. */
+pre span[style*="--shiki-light"] {
+  color: var(--shiki-light);
+}
+.dark pre span[style*="--shiki-dark"] {
+  color: var(--shiki-dark);
+}
+pre {
+  overflow-x: auto;
+}
