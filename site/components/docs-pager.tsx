@@ -12,8 +12,9 @@ export function DocsPager() {
   if (i === -1) return null;
   const prev = docsNav[i - 1];
   const next = docsNav[i + 1];
+  // Wraps on narrow screens: two long titles side by side overflow a phone.
   return (
-    <div className="mt-12 flex justify-between border-t pt-6">
+    <div className="mt-12 flex flex-wrap justify-between gap-2 border-t pt-6">
       {prev ? (
         <Link href={prev.href} className={buttonVariants({ variant: "ghost" })}>
           <ChevronLeft className="size-4" /> {prev.title}
@@ -22,7 +23,7 @@ export function DocsPager() {
         <span />
       )}
       {next && (
-        <Link href={next.href} className={buttonVariants({ variant: "ghost" })}>
+        <Link href={next.href} className={buttonVariants({ variant: "ghost", className: "ml-auto" })}>
           {next.title} <ChevronRight className="size-4" />
         </Link>
       )}

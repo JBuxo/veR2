@@ -140,3 +140,19 @@ pre span[style*="--shiki-light"] {
 pre {
   overflow-x: auto;
 }
+
+/* Headings are wrapped in self-links by rehype-autolink-headings; keep them looking like headings. */
+.prose :is(h1, h2, h3, h4) a {
+  text-decoration: none;
+}
+/* Typography adds literal backticks around inline code; shadcn-style code pills don't need them. */
+.prose :not(pre) > code::before,
+.prose :not(pre) > code::after {
+  content: none;
+}
+.prose :not(pre) > code {
+  border-radius: 0.25rem;
+  background: var(--muted);
+  padding: 0.1rem 0.3rem;
+  font-weight: 500;
+}
