@@ -14,4 +14,5 @@ export const docsNav: DocsNavItem[] = [
   { title: "CLI reference", href: "/docs/cli-reference/" },
   { title: "Errors", href: "/docs/errors/" },
   { title: "Guarantees and limitations", href: "/docs/guarantees/" },
+  { title: "Contributing", href: "/docs/contributing/" },
 ];
