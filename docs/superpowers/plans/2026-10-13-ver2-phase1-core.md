@@ -3205,7 +3205,7 @@ git commit -m "chore(cli): scaffold @ver2/cli with config and output"
 - Create: `cli/src/commands.ts`, `cli/src/main.ts`, `cli/src/index.ts`
 - Test: `cli/test/cli.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `cli/test/cli.test.ts`:
 ```ts
@@ -3343,7 +3343,7 @@ describe("ver2 CLI", () => {
 
 Run: `npm test -w @ver2/cli` → Expected: FAIL, cannot resolve `../src/main.js`.
 
-- [ ] **Step 2: Commands**
+- [x] **Step 2: Commands**
 
 `cli/src/commands.ts`:
 ```ts
@@ -3448,7 +3448,7 @@ export const COMMANDS: Record<string, Handler> = {
 };
 ```
 
-- [ ] **Step 3: Dispatcher**
+- [x] **Step 3: Dispatcher**
 
 `cli/src/main.ts`:
 ```ts
@@ -3532,11 +3532,11 @@ export async function main(argv: string[], io: Io): Promise<number> {
 }
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `npm test -w @ver2/cli` → Expected: 11 passed.
 
-- [ ] **Step 5: Binary entry point**
+- [x] **Step 5: Binary entry point**
 
 `cli/src/index.ts`:
 ```ts
@@ -3564,7 +3564,7 @@ process.exitCode = await main(process.argv.slice(2), {
 });
 ```
 
-- [ ] **Step 6: Build and smoke-test the binary**
+- [x] **Step 6: Build and smoke-test the binary**
 
 Run:
 ```bash
@@ -3573,7 +3573,7 @@ node cli/dist/index.js --help
 ```
 Expected: the usage text, exit 0. Then `node cli/dist/index.js ls` with no credentials → `ver2: Missing configuration: …`, exit 2.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add cli
