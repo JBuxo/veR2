@@ -44,6 +44,13 @@ Unit tests run against an in-memory store and need nothing. The integration test
 - Fill in the PR template, including whether you ran the R2 integration tests.
 - CI must pass. A maintainer runs integration tests against R2 before merging changes to storage drivers or the engine.
 
+## Releasing (maintainers)
+
+1. Bump the version in the package's `package.json` (`@ver2/sdk` before `@ver2/cli` when both change, since the CLI depends on the SDK).
+2. Publish with `npm run release -- -w <package> --otp=<code>`. The script builds first on purpose: npm validates `bin` before `prepack` runs, so publishing with a missing `dist/` silently drops the `ver2` binary from the CLI.
+3. A brand-new package goes through npm's staged publishing: the registry shows a `0.0.0-stage` placeholder until a maintainer approves the real version under **Staged Packages** on npmjs.com.
+4. Once the version is live, tag the release commit (`sdk-v<version>` / `cli-v<version>`).
+
 ## Code of conduct
 
 Participation is governed by our [Code of Conduct](CODE_OF_CONDUCT.md).

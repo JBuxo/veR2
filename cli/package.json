@@ -1,6 +1,6 @@
 {
   "name": "@ver2/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Command-line interface for veR2",
   "license": "Apache-2.0",
   "repository": {
@@ -10,7 +10,7 @@
   },
   "type": "module",
   "bin": {
-    "ver2": "./dist/index.js"
+    "ver2": "dist/index.js"
   },
   "files": [
     "dist"

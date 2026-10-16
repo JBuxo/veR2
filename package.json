@@ -13,7 +13,8 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "test": "npm test --workspaces",
-    "typecheck": "npm run typecheck --workspaces"
+    "typecheck": "npm run typecheck --workspaces",
+    "release": "npm run build -w @ver2/sdk -w @ver2/cli && npm publish"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
