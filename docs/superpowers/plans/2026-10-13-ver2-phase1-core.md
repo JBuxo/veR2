@@ -63,7 +63,7 @@ cli/
 - Create: `package.json`, `tsconfig.base.json`, `sdk/package.json`, `sdk/tsconfig.json`, `sdk/tsconfig.build.json`, `sdk/vitest.config.ts`, `sdk/src/index.ts`
 - Test: `sdk/test/smoke.test.ts`
 
-- [ ] **Step 1: Root workspace files**
+- [x] **Step 1: Root workspace files**
 
 `package.json`:
 ```json
@@ -103,7 +103,7 @@ cli/
 }
 ```
 
-- [ ] **Step 2: SDK package files**
+- [x] **Step 2: SDK package files**
 
 `sdk/package.json`:
 ```json
@@ -153,7 +153,7 @@ export default defineConfig({
 export const VERSION = "0.1.0";
 ```
 
-- [ ] **Step 3: Install toolchain**
+- [x] **Step 3: Install toolchain**
 
 Run:
 ```bash
@@ -162,7 +162,7 @@ npm i -w @ver2/sdk @noble/hashes
 ```
 Expected: `package-lock.json` created, `node_modules/` at root.
 
-- [ ] **Step 4: Smoke test**
+- [x] **Step 4: Smoke test**
 
 `sdk/test/smoke.test.ts`:
 ```ts
@@ -177,7 +177,7 @@ it("exports a version", () => {
 Run: `npm test -w @ver2/sdk` → Expected: 1 passed.
 Run: `npm run typecheck -w @ver2/sdk` → Expected: no output, exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add package.json package-lock.json tsconfig.base.json sdk
@@ -192,7 +192,7 @@ git commit -m "chore: scaffold npm workspace and @ver2/sdk package"
 - Create: `sdk/src/errors.ts`
 - Test: `sdk/test/errors.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `sdk/test/errors.test.ts`:
 ```ts
@@ -241,11 +241,11 @@ describe("errors", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npm test -w @ver2/sdk -- errors` → Expected: FAIL, cannot resolve `../src/errors.js`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `sdk/src/errors.ts`:
 ```ts
@@ -333,11 +333,11 @@ export class StorageError extends Ver2Error {
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `npm test -w @ver2/sdk -- errors` → Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdk/src/errors.ts sdk/test/errors.test.ts
@@ -354,7 +354,7 @@ Probe evidence: R2 resolves `.`/`..` segments (including `%2E`) before storing, 
 - Create: `sdk/src/keys.ts`
 - Test: `sdk/test/keys.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `sdk/test/keys.test.ts`:
 ```ts
@@ -412,11 +412,11 @@ describe("validateNamespace", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npm test -w @ver2/sdk -- keys` → Expected: FAIL, cannot resolve `../src/keys.js`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `sdk/src/keys.ts`:
 ```ts
@@ -473,11 +473,11 @@ export function validateNamespace(namespace: string): string {
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `npm test -w @ver2/sdk -- keys` → Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdk/src/keys.ts sdk/test/keys.test.ts
@@ -492,7 +492,7 @@ git commit -m "feat(sdk): add key and namespace policy"
 - Create: `sdk/src/ids.ts`
 - Test: `sdk/test/ids.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `sdk/test/ids.test.ts`:
 ```ts
@@ -521,11 +521,11 @@ describe("ulid", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npm test -w @ver2/sdk -- ids` → Expected: FAIL, cannot resolve `../src/ids.js`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `sdk/src/ids.ts`:
 ```ts
@@ -548,11 +548,11 @@ export function ulid(now: number = Date.now(), random: (n: number) => Uint8Array
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `npm test -w @ver2/sdk -- ids` → Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdk/src/ids.ts sdk/test/ids.test.ts
@@ -567,12 +567,12 @@ git commit -m "feat(sdk): add ULID generator"
 - Create: `sdk/src/hash.ts`
 - Test: `sdk/test/hash.test.ts`
 
-- [ ] **Step 1: Confirm the `@noble/hashes` import paths**
+- [x] **Step 1: Confirm the `@noble/hashes` import paths**
 
 Run: `node -e "import('@noble/hashes/sha2.js').then(m=>console.log(typeof m.sha256))"`
 Expected: `function`. (If it prints an error, run `npm ls @noble/hashes` and adjust both imports in Step 3 to that version's documented paths.)
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 `sdk/test/hash.test.ts`:
 ```ts
@@ -610,7 +610,7 @@ describe("hash", () => {
 });
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `sdk/src/hash.ts`:
 ```ts
@@ -653,11 +653,11 @@ export function verifyingStream(expected: string, onMismatch: (actual: string) =
 }
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `npm test -w @ver2/sdk -- hash` → Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdk/src/hash.ts sdk/test/hash.test.ts
@@ -674,7 +674,7 @@ The memory store must behave like R2 did in the probes: exact conditional put/co
 - Create: `sdk/src/storage/types.ts`, `sdk/src/storage/memory.ts`, `sdk/test/storage/contract.ts`
 - Test: `sdk/test/storage/memory.test.ts`
 
-- [ ] **Step 1: Interface**
+- [x] **Step 1: Interface**
 
 `sdk/src/storage/types.ts`:
 ```ts
@@ -750,7 +750,7 @@ export class StoreError extends Error {
 export const isPreconditionFailed = (e: unknown): boolean => e instanceof StoreError && e.kind === "precondition-failed";
 ```
 
-- [ ] **Step 2: Contract suite**
+- [x] **Step 2: Contract suite**
 
 `sdk/test/storage/contract.ts`:
 ```ts
@@ -904,7 +904,7 @@ export function objectStoreContract(name: string, setup: () => ContractTarget) {
 }
 ```
 
-- [ ] **Step 3: Write the failing memory test**
+- [x] **Step 3: Write the failing memory test**
 
 `sdk/test/storage/memory.test.ts`:
 ```ts
@@ -960,7 +960,7 @@ describe("MemoryObjectStore extras", () => {
 
 Run: `npm test -w @ver2/sdk -- storage` → Expected: FAIL, cannot resolve `../../src/storage/memory.js`.
 
-- [ ] **Step 4: Implement the memory store**
+- [x] **Step 4: Implement the memory store**
 
 `sdk/src/storage/memory.ts`:
 ```ts
@@ -1094,12 +1094,12 @@ export class MemoryObjectStore implements ObjectStore {
 }
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `npm test -w @ver2/sdk -- storage` → Expected: contract (13) + extras (4) pass.
 Run: `npm run typecheck -w @ver2/sdk` → Expected: exit 0.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add sdk/src/storage sdk/test/storage
@@ -1114,7 +1114,7 @@ git commit -m "feat(sdk): add ObjectStore interface, memory store and contract s
 - Create: `sdk/src/storage/s3.ts`, `sdk/test/integration/env.ts`
 - Test: `sdk/test/integration/s3-store.test.ts`
 
-- [ ] **Step 1: Dependencies**
+- [x] **Step 1: Dependencies**
 
 Run:
 ```bash
@@ -1126,7 +1126,7 @@ Then add to `sdk/package.json` (keeps the AWS SDK optional for Workers users who
   "peerDependenciesMeta": { "@aws-sdk/client-s3": { "optional": true } }
 ```
 
-- [ ] **Step 2: Integration env + failing test**
+- [x] **Step 2: Integration env + failing test**
 
 `sdk/test/integration/env.ts`:
 ```ts
@@ -1182,7 +1182,7 @@ describe.skipIf(!hasR2)("S3ObjectStore against R2", () => {
 
 Run: `npm test -w @ver2/sdk -- integration` → Expected: FAIL, cannot resolve `../../src/storage/s3.js`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `sdk/src/storage/s3.ts`:
 ```ts
@@ -1387,12 +1387,12 @@ export class S3ObjectStore implements ObjectStore {
 }
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `npm run typecheck -w @ver2/sdk` → Expected: exit 0.
 Run: `npm test -w @ver2/sdk -- integration` → Expected with `.env.local` present: 13 passed. Without credentials: skipped.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdk/package.json package-lock.json sdk/src/storage/s3.ts sdk/test/integration
@@ -1407,7 +1407,7 @@ git commit -m "feat(sdk): add S3ObjectStore for R2 and run the contract suite ag
 - Create: `sdk/src/layout.ts`, `sdk/src/meta/types.ts`, `sdk/src/meta/object-store-manifests.ts`
 - Test: `sdk/test/meta/manifests.test.ts`
 
-- [ ] **Step 1: Layout and types**
+- [x] **Step 1: Layout and types**
 
 `sdk/src/layout.ts`:
 ```ts
@@ -1506,7 +1506,7 @@ export const emptyManifest = (key: string): Manifest => ({
 });
 ```
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 `sdk/test/meta/manifests.test.ts`:
 ```ts
@@ -1566,7 +1566,7 @@ describe("ObjectStoreManifests", () => {
 
 Run: `npm test -w @ver2/sdk -- meta` → Expected: FAIL, cannot resolve `object-store-manifests.js`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `sdk/src/meta/object-store-manifests.ts`:
 ```ts
@@ -1616,11 +1616,11 @@ export class ObjectStoreManifests implements MetadataStore {
 }
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `npm test -w @ver2/sdk -- meta` → Expected: 6 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdk/src/layout.ts sdk/src/meta sdk/test/meta
@@ -1637,7 +1637,7 @@ git commit -m "feat(sdk): add manifest types and manifests-in-bucket metadata st
 - Create: `sdk/src/engine/context.ts`, `sdk/src/engine/manifest.ts`, `sdk/src/engine/live.ts`, `sdk/test/helpers.ts`
 - Test: `sdk/test/engine/live.test.ts`
 
-- [ ] **Step 1: Context and commit helper**
+- [x] **Step 1: Context and commit helper**
 
 `sdk/src/engine/context.ts`:
 ```ts
@@ -1675,7 +1675,7 @@ export async function commit(ctx: EngineContext, key: string, manifest: Manifest
 }
 ```
 
-- [ ] **Step 2: Test harness**
+- [x] **Step 2: Test harness**
 
 `sdk/test/helpers.ts`:
 ```ts
@@ -1749,7 +1749,7 @@ export function crashOn(
 }
 ```
 
-- [ ] **Step 3: Write the failing test**
+- [x] **Step 3: Write the failing test**
 
 `sdk/test/engine/live.test.ts`:
 ```ts
@@ -1809,7 +1809,7 @@ describe("syncLive", () => {
 
 Run: `npm test -w @ver2/sdk -- live` → Expected: FAIL, cannot resolve `../../src/engine/live.js`.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 `sdk/src/engine/live.ts`:
 ```ts
@@ -1864,7 +1864,7 @@ export async function syncLive(ctx: EngineContext, key: string, manifest: Manife
 }
 ```
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 Run: `npm test -w @ver2/sdk -- live` → Expected: 5 passed.
 ```bash
@@ -1880,7 +1880,7 @@ git commit -m "feat(sdk): add engine context and live-state sync for direct writ
 - Create: `sdk/src/engine/recover.ts`, `sdk/src/engine/claim.ts`
 - Test: `sdk/test/engine/recover.test.ts` (written in Task 11, Step 5: it needs `put`/`remove` to create realistic crash states)
 
-- [ ] **Step 1: Implement recovery**
+- [x] **Step 1: Implement recovery**
 
 `sdk/src/engine/recover.ts`:
 ```ts
@@ -1968,7 +1968,7 @@ async function decide(ctx: EngineContext, manifest: Manifest, op: PendingOp, liv
 }
 ```
 
-- [ ] **Step 2: Implement write admission**
+- [x] **Step 2: Implement write admission**
 
 `sdk/src/engine/claim.ts`:
 ```ts
@@ -1995,7 +1995,7 @@ export async function loadForWrite(ctx: EngineContext, key: string): Promise<{ m
 }
 ```
 
-- [ ] **Step 3: Typecheck and commit**
+- [x] **Step 3: Typecheck and commit**
 
 Run: `npm run typecheck -w @ver2/sdk` → Expected: exit 0.
 ```bash
@@ -2011,7 +2011,7 @@ git commit -m "feat(sdk): add evidence-based recovery and write admission"
 - Create: `sdk/src/engine/promote.ts`, `sdk/src/engine/run-claimed.ts`, `sdk/src/engine/put.ts`
 - Test: `sdk/test/engine/put.test.ts`, `sdk/test/engine/recover.test.ts`
 
-- [ ] **Step 1: Promote and the claimed-op runner**
+- [x] **Step 1: Promote and the claimed-op runner**
 
 `sdk/src/engine/promote.ts`:
 ```ts
@@ -2103,7 +2103,7 @@ async function abandon(ctx: EngineContext, key: string, claim: Claim): Promise<v
 }
 ```
 
-- [ ] **Step 2: Write the failing put test**
+- [x] **Step 2: Write the failing put test**
 
 `sdk/test/engine/put.test.ts`:
 ```ts
@@ -2198,7 +2198,7 @@ describe("put", () => {
 
 Run: `npm test -w @ver2/sdk -- put` → Expected: FAIL, cannot resolve `../../src/engine/put.js`.
 
-- [ ] **Step 3: Implement put**
+- [x] **Step 3: Implement put**
 
 `sdk/src/engine/put.ts`:
 ```ts
@@ -2288,11 +2288,11 @@ async function putVersionObject(ctx: EngineContext, objectKey: string, bytes: Ui
 }
 ```
 
-- [ ] **Step 4: Run put tests**
+- [x] **Step 4: Run put tests**
 
 Run: `npm test -w @ver2/sdk -- put` → Expected: 8 passed.
 
-- [ ] **Step 5: Recovery tests**
+- [x] **Step 5: Recovery tests**
 
 `sdk/test/engine/recover.test.ts`:
 ```ts
@@ -2382,7 +2382,7 @@ describe("recover", () => {
 
 Run: `npm test -w @ver2/sdk -- recover` → Expected: 7 passed.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add sdk/src/engine sdk/test/engine/put.test.ts sdk/test/engine/recover.test.ts
@@ -2397,7 +2397,7 @@ git commit -m "feat(sdk): add journaled put with guarded promote and recovery te
 - Create: `sdk/src/engine/delete.ts`
 - Test: `sdk/test/engine/delete.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `sdk/test/engine/delete.test.ts`:
 ```ts
@@ -2469,7 +2469,7 @@ describe("remove", () => {
 
 Run: `npm test -w @ver2/sdk -- delete` → Expected: FAIL, cannot resolve `../../src/engine/delete.js`.
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 `sdk/src/engine/delete.ts`:
 ```ts
@@ -2524,7 +2524,7 @@ export async function remove(ctx: EngineContext, rawKey: string): Promise<Delete
 }
 ```
 
-- [ ] **Step 3: Run tests and commit**
+- [x] **Step 3: Run tests and commit**
 
 Run: `npm test -w @ver2/sdk -- delete` → Expected: 6 passed.
 ```bash
@@ -2540,7 +2540,7 @@ git commit -m "feat(sdk): add journaled logical delete"
 - Create: `sdk/src/engine/restore.ts`, `sdk/src/engine/versions.ts`
 - Test: `sdk/test/engine/restore.test.ts`, `sdk/test/engine/versions.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `sdk/test/engine/restore.test.ts`:
 ```ts
@@ -2645,7 +2645,7 @@ describe("download", () => {
 
 Run: `npm test -w @ver2/sdk -- restore versions` → Expected: FAIL, modules not found.
 
-- [ ] **Step 2: Implement restore**
+- [x] **Step 2: Implement restore**
 
 `sdk/src/engine/restore.ts`:
 ```ts
@@ -2702,7 +2702,7 @@ export async function restore(ctx: EngineContext, rawKey: string, versionId: str
 }
 ```
 
-- [ ] **Step 3: Implement listing and download**
+- [x] **Step 3: Implement listing and download**
 
 `sdk/src/engine/versions.ts`:
 ```ts
@@ -2749,7 +2749,7 @@ export async function download(ctx: EngineContext, rawKey: string, versionId?: s
 }
 ```
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 Run: `npm test -w @ver2/sdk -- restore versions` → Expected: 3 + 6 passed.
 Run: `npm test -w @ver2/sdk` → Expected: everything passes (integration skipped without creds).
