@@ -59,3 +59,13 @@ describe("docs match the code", () => {
     for (const code of codes) expect(page, `error ${code}`).toContain(`\`${code}\``);
   });
 });
+
+describe("diagrams", () => {
+  it("draws the bucket layout as an SVG, not ASCII art", () => {
+    const sources = [readFileSync(join(root, "app", "page.tsx"), "utf8"), readDoc("how-it-works")];
+    for (const src of sources) {
+      expect(src).not.toContain("├──");
+      expect(src).toContain("<ArchitectureDiagram");
+    }
+  });
+});

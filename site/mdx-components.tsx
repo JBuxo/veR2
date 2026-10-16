@@ -1,5 +1,6 @@
 import type { MDXComponents } from "mdx/types";
 import type { ComponentProps } from "react";
+import { ArchitectureDiagram } from "@/components/architecture-diagram";
 import { CopyButton } from "@/components/copy-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,6 +15,7 @@ function Note({ children }: { children: React.ReactNode }) {
 }
 
 const components: MDXComponents = {
+  ArchitectureDiagram,
   Note,
   table: (props: ComponentProps<"table">) => (
     <div className="not-prose my-6">

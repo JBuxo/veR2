@@ -6,13 +6,7 @@ veR2 adds history to a bucket without moving anything. This page explains what i
 
 ## What lives in the bucket
 
-```text
-your app ──► veR2 SDK ──► R2 bucket
-                            ├── uploads/a.png         live object (same key as always)
-                            ├── .ver2/o/…/<version>   immutable version bytes
-                            └── .ver2/m/uploads/a.png manifest: history + in-flight op journal
-readers ──────────────────► uploads/a.png   (unchanged: CDN, public URLs, presigned GETs)
-```
+<ArchitectureDiagram />
 
 - **Live objects** stay at their keys. veR2 never moves, renames or wraps them, so the read path doesn't change.
 - **Version objects** live at `.ver2/o/<sha256 of the key>/<versionId>`. Each is written once, with `If-None-Match: *` under a fresh ULID, and never overwritten.

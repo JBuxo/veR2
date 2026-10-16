@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArchitectureDiagram } from "@/components/architecture-diagram";
 import { CodeBlock } from "@/components/code-block";
 import { CopyButton } from "@/components/copy-button";
 import { GitHubIcon } from "@/components/github-icon";
@@ -8,14 +9,6 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { site } from "@/lib/site";
-
-const layout = `
-your app ──► veR2 SDK ──► R2 bucket
-                            ├── uploads/a.png         live object (same key as always)
-                            ├── .ver2/o/…/<version>   immutable version bytes
-                            └── .ver2/m/uploads/a.png manifest: history + in-flight op journal
-readers ──────────────────► uploads/a.png   (unchanged: CDN, public URLs, presigned GETs)
-`;
 
 const sdkSample = `
 import { createVer2 } from "@ver2/sdk";
@@ -82,7 +75,7 @@ export default function Home() {
 
       <section className="flex flex-col gap-6">
         <h2 className="text-2xl font-semibold tracking-tight">How it works</h2>
-        <CodeBlock code={layout} lang="text" />
+        <ArchitectureDiagram className="my-0" />
         <div className="grid gap-4 md:grid-cols-3">
           {features.map((f) => (
             <Card key={f.title}>
