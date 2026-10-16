@@ -1,0 +1,30 @@
+{
+  "name": "@ver2/cli",
+  "version": "0.1.0",
+  "description": "Command-line interface for veR2",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JBuxo/ver2.git",
+    "directory": "cli"
+  },
+  "type": "module",
+  "bin": {
+    "ver2": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1152.0",
+    "@ver2/sdk": "^0.1.0"
+  }
+}

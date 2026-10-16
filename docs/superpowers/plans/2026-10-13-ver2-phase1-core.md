@@ -2993,7 +2993,7 @@ git commit -m "feat(sdk): add Ver2 facade and public API"
 - Create: `cli/package.json`, `cli/tsconfig.json`, `cli/tsconfig.build.json`, `cli/vitest.config.ts`, `cli/src/types.ts`, `cli/src/config.ts`, `cli/src/output.ts`
 - Modify: root `package.json` (`"workspaces": ["sdk", "cli"]`)
 
-- [ ] **Step 1: Package files**
+- [x] **Step 1: Package files**
 
 `cli/package.json`:
 ```json
@@ -3062,7 +3062,7 @@ npm i -w @ver2/cli @ver2/sdk @aws-sdk/client-s3
 ```
 Expected: `cli/package.json` gains `@ver2/sdk` and `@aws-sdk/client-s3` dependencies; `node_modules/@ver2/sdk` links to `sdk/`.
 
-- [ ] **Step 2: Shared types, config, output**
+- [x] **Step 2: Shared types, config, output**
 
 `cli/src/types.ts`:
 ```ts
@@ -3189,7 +3189,7 @@ export function output(io: Io, json: boolean): Output {
 }
 ```
 
-- [ ] **Step 3: Typecheck and commit**
+- [x] **Step 3: Typecheck and commit**
 
 Run: `npm run typecheck -w @ver2/cli` → Expected: exit 0.
 ```bash

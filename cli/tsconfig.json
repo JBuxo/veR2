@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@ver2/sdk": ["../sdk/src/index.ts"],
+      "@ver2/sdk/s3": ["../sdk/src/storage/s3.ts"],
+      "@ver2/sdk/memory": ["../sdk/src/storage/memory.ts"]
+    },
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src", "test", "vitest.config.ts"]
+}
