@@ -1,0 +1,26 @@
+name: Feature request
+description: Propose a new capability or change
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and why doesn't veR2 support it today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: How it could work. Note any R2 behavior it would rely on.
+  - type: dropdown
+    id: tier
+    attributes:
+      label: Which deployment does this matter for?
+      multiple: true
+      options:
+        - Lite (R2 credentials only)
+        - Team (SQL metadata store)
+        - Enterprise (audit, retention, policies)
+        - Edge (Cloudflare Workers)
