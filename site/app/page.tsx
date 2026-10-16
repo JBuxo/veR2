@@ -1,69 +1,150 @@
-import Image from "next/image";
+import Link from "next/link";
+import { CodeBlock } from "@/components/code-block";
+import { CopyButton } from "@/components/copy-button";
+import { GitHubIcon } from "@/components/github-icon";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { site } from "@/lib/site";
+
+const layout = `
+your app ──► veR2 SDK ──► R2 bucket
+                            ├── uploads/a.png         live object (same key as always)
+                            ├── .ver2/o/…/<version>   immutable version bytes
+                            └── .ver2/m/uploads/a.png manifest: history + in-flight op journal
+readers ──────────────────► uploads/a.png   (unchanged: CDN, public URLs, presigned GETs)
+`;
+
+const sdkSample = `
+import { createVer2 } from "@ver2/sdk";
+import { S3ObjectStore } from "@ver2/sdk/s3";
+
+const ver2 = createVer2({ store: new S3ObjectStore({ bucket, accountId, credentials }) });
+
+const { versionId } = await ver2.put("docs/report.pdf", bytes);
+await ver2.versions.list("docs/report.pdf");
+await ver2.versions.restore("docs/report.pdf", versionId);
+`;
+
+const cliSample = `
+ver2 put docs/report.pdf ./report.pdf
+ver2 versions docs/report.pdf
+ver2 restore docs/report.pdf <versionId>
+`;
+
+const features = [
+  {
+    title: "Reads don't change",
+    body: "Live objects stay at their keys. CDNs, public URLs and presigned GETs keep working, and veR2 is never in the read path.",
+  },
+  {
+    title: "Every write keeps a version",
+    body: "Each put, delete and restore keeps an immutable version under a reserved namespace, verified by SHA-256 on download.",
+  },
+  {
+    title: "Crash-safe by design",
+    body: "Every write is journaled. An interrupted operation is finished or undone from storage evidence, or flagged instead of guessed.",
+  },
+];
+
+const guarantees: [string, string, string][] = [
+  ["✅", "Concurrent veR2 writers to one key", "Serialized; losers get ConcurrencyConflict"],
+  ["✅", "A direct write racing a veR2 write", "Detected; never silently clobbered"],
+  ["✅", "Crash mid-operation", "Rolled forward/back from evidence, or flagged OperationIncomplete"],
+  ["✅", "Version integrity", "SHA-256 verified on download"],
+  ["⚠️", "Direct deletes (outside veR2)", "Cannot be prevented or undone: R2 ignores delete conditions"],
+  ["⚠️", "Hot keys", "R2 allows about 1 write/s per key; expect 429s on rapid rewrites"],
+  ["⚠️", "Large objects", "Bodies are buffered in memory for now; streaming comes later"],
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="mx-auto flex max-w-6xl flex-col gap-24 px-4 py-16 md:py-24">
+      <section className="flex flex-col items-start gap-6">
+        <Badge variant="secondary">Pre-alpha · 0.x</Badge>
+        <h1 className="max-w-3xl text-4xl font-bold tracking-tight md:text-6xl">{site.tagline}</h1>
+        <p className="max-w-2xl text-lg text-muted-foreground">{site.description}</p>
+        <div className="flex items-center gap-2 rounded-lg border bg-muted py-1 pr-1 pl-4 font-mono text-sm">
+          <span>npm i @ver2/sdk</span>
+          <CopyButton text="npm i @ver2/sdk" />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Link href="/docs/installation/" className={buttonVariants({ size: "lg" })}>
+            Get started
+          </Link>
+          <a href={site.github} className={buttonVariants({ size: "lg", variant: "outline" })}>
+            <GitHubIcon className="size-4" /> GitHub
+          </a>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-6">
+        <h2 className="text-2xl font-semibold tracking-tight">How it works</h2>
+        <CodeBlock code={layout} lang="text" />
+        <div className="grid gap-4 md:grid-cols-3">
+          {features.map((f) => (
+            <Card key={f.title}>
+              <CardHeader>
+                <CardTitle>{f.title}</CardTitle>
+                <CardDescription>{f.body}</CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-6">
+        <h2 className="text-2xl font-semibold tracking-tight">Use it from code or the terminal</h2>
+        <Tabs defaultValue="sdk">
+          <TabsList>
+            <TabsTrigger value="sdk">SDK</TabsTrigger>
+            <TabsTrigger value="cli">CLI</TabsTrigger>
+          </TabsList>
+          <TabsContent value="sdk">
+            <CodeBlock code={sdkSample} lang="ts" />
+          </TabsContent>
+          <TabsContent value="cli">
+            <CodeBlock code={cliSample} lang="bash" />
+          </TabsContent>
+        </Tabs>
+      </section>
+
+      <section className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-2xl font-semibold tracking-tight">Honest guarantees</h2>
+          <p className="text-muted-foreground">
+            veR2 guarantees what R2 lets it guarantee and documents the rest.{" "}
+            <Link href="/docs/guarantees/" className="underline underline-offset-4">
+              Read the details
+            </Link>
+            .
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="rounded-lg border">
+          <Table>
+            <TableBody>
+              {guarantees.map(([icon, what, how]) => (
+                <TableRow key={what}>
+                  <TableCell className="w-8">{icon}</TableCell>
+                  <TableCell className="font-medium whitespace-normal">{what}</TableCell>
+                  <TableCell className="whitespace-normal text-muted-foreground">{how}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
-      </main>
+      </section>
+
+      <section className="flex flex-col items-center gap-4 rounded-xl border bg-muted/40 px-6 py-12 text-center">
+        <h2 className="text-2xl font-semibold tracking-tight">Start keeping history</h2>
+        <p className="max-w-xl text-muted-foreground">Install the SDK, point it at your bucket, and every write is versioned.</p>
+        <div className="flex flex-wrap justify-center gap-3">
+          <Link href="/docs/" className={buttonVariants()}>Read the docs</Link>
+          <a href={site.npm.sdk} className={buttonVariants({ variant: "outline" })}>View on npm</a>
+        </div>
+      </section>
     </div>
   );
 }
