@@ -20,11 +20,15 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",
     "@ver2/sdk": "^0.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
