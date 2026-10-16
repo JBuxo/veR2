@@ -1,0 +1,65 @@
+export const metadata = { title: "Quickstart: CLI" };
+
+# Quickstart: CLI
+
+The `ver2` command does everything the SDK does, from the terminal. Install it with `npm i -g @ver2/cli`, or prefix the commands below with `npx @ver2/cli` instead of `ver2`.
+
+## Configure
+
+`ver2` reads its configuration from environment variables. It also loads `.env.local` and `.env` from the current directory if they exist.
+
+```bash
+R2_ACCOUNT_ID=your-account-id
+R2_BUCKET=your-bucket
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+```
+
+Use `R2_ENDPOINT` instead of `R2_ACCOUNT_ID` for a custom endpoint (EU-jurisdiction buckets use `https://<account-id>.eu.r2.cloudflarestorage.com`). `VER2_NAMESPACE` changes the reserved prefix from the default `.ver2`. If something is missing, `ver2` lists every missing variable and exits with code 2.
+
+## Walkthrough
+
+Upload a file twice to get two versions:
+
+```bash
+echo "first draft" > report.txt
+ver2 put docs/report.txt ./report.txt --content-type text/plain
+echo "second draft" > report.txt
+ver2 put docs/report.txt ./report.txt
+```
+
+Show the history, newest first:
+
+```bash
+ver2 versions docs/report.txt
+```
+
+Restore the first version (copy its ID from the history):
+
+```bash
+ver2 restore docs/report.txt <versionId>
+```
+
+Download a version to a file (SHA-256 verified), or to stdout without `-o`:
+
+```bash
+ver2 download docs/report.txt <versionId> -o old-report.txt
+ver2 download docs/report.txt
+```
+
+Delete the object. Its history stays:
+
+```bash
+ver2 rm docs/report.txt
+ver2 ls docs/
+```
+
+## Use it in scripts
+
+Add `--json` to any command for machine-readable output. Errors then go to stderr as `{"error":{"code","message","details"}}`, and the exit code tells you what kind of failure it was:
+
+```bash
+ver2 put docs/report.txt ./report.txt --json | jq -r .versionId
+```
+
+If an operation was interrupted (a crash, a lost connection), run `ver2 reconcile` to settle it. See the [CLI reference](/docs/cli-reference/) for every command, option and exit code.

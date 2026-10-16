@@ -1,0 +1,107 @@
+export const metadata = { title: "Quickstart: SDK" };
+
+# Quickstart: SDK
+
+This page walks through the whole lifecycle of a versioned object. It assumes you've [installed](/docs/installation/) `@ver2/sdk` and `@aws-sdk/client-s3` and have R2 credentials.
+
+## Create a client
+
+```ts
+import { createVer2 } from "@ver2/sdk";
+import { S3ObjectStore } from "@ver2/sdk/s3";
+
+const ver2 = createVer2({
+  store: new S3ObjectStore({
+    bucket: process.env.R2_BUCKET!,
+    accountId: process.env.R2_ACCOUNT_ID,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    },
+  }),
+});
+```
+
+`createVer2` takes more options (namespace, lease, a custom metadata store); see [Configuration](/docs/configuration/).
+
+## Write versions
+
+```ts
+const v1 = await ver2.put("docs/report.txt", "first draft", {
+  headers: { contentType: "text/plain" },
+});
+const v2 = await ver2.put("docs/report.txt", new TextEncoder().encode("second draft"));
+```
+
+`put` accepts a `Uint8Array` or a string and returns `{ key, versionId, sha256, size, etag }`. The object at `docs/report.txt` is now "second draft", exactly as if you had written it to R2 directly, and both versions are kept.
+
+## Read the history
+
+```ts
+const history = await ver2.versions.list("docs/report.txt");
+for (const v of history) console.log(v.versionId, v.kind, v.source, v.createdAt, v.size);
+```
+
+History is newest first. Each record has:
+
+| Field | Meaning |
+|---|---|
+| `versionId` | A ULID identifying the version |
+| `kind` | `put` or `delete` |
+| `source` | `ver2` (written through veR2), `external` (a direct write to R2 that veR2 preserved) or `restore` |
+| `createdAt` | ISO timestamp |
+| `size`, `sha256`, `headers` | For `put` versions |
+| `restoredFrom` | For restores, the version that was restored |
+
+## Restore an old version
+
+```ts
+await ver2.versions.restore("docs/report.txt", v1.versionId);
+```
+
+The object at the key goes back to "first draft". A restore doesn't rewrite history: it adds a new version with `source: "restore"` and `restoredFrom` set to `v1.versionId`.
+
+## Download any version
+
+```ts
+const { record, body } = await ver2.versions.download("docs/report.txt", v2.versionId);
+const text = await new Response(body).text();
+```
+
+Leave out the version ID to get the current version. `body` is a `ReadableStream`, and veR2 checks its SHA-256 as it streams. If the bytes don't match what was recorded, the stream errors at the end with `INTEGRITY_CHECK_FAILED`, so don't trust the data until the stream has finished.
+
+## Delete
+
+```ts
+await ver2.delete("docs/report.txt");
+```
+
+The object at the key is removed and a `delete` marker is added to the history. Nothing else is lost: every earlier version can still be downloaded or restored. If nothing was there to delete, the result's `versionId` is `null`.
+
+## List versioned keys
+
+```ts
+const { keys, cursor } = await ver2.list("docs/", { limit: 100 });
+```
+
+This lists keys veR2 has a history for, including keys that are currently deleted. Pass `cursor` back in to get the next page.
+
+## Handle errors
+
+Every error veR2 throws on purpose is a `Ver2Error` with a stable `code`:
+
+```ts
+import { Ver2Error } from "@ver2/sdk";
+
+try {
+  await ver2.versions.restore("docs/report.txt", "01JUNKNOWNVERSION0000000000");
+} catch (e) {
+  if (e instanceof Ver2Error && e.code === "VERSION_NOT_FOUND") {
+    // show the user the list of versions instead
+  } else {
+    throw e;
+  }
+}
+```
+
+See [Errors](/docs/errors/) for every code and what to do about it.

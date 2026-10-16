@@ -1,0 +1,116 @@
+export const metadata = { title: "CLI reference" };
+
+# CLI reference
+
+```bash
+ver2 <command> [options]
+```
+
+Every command validates its key before touching storage, accepts `--json`, and exits with one of the [exit codes](#exit-codes) below.
+
+## put
+
+```bash
+ver2 put <key> <file> [--content-type <type>]
+```
+
+Uploads `<file>` as a new version of `<key>` and makes it the object at that key. `--content-type` sets the `Content-Type` stored with the object. Prints the new version ID, size and SHA-256.
+
+## rm
+
+```bash
+ver2 rm <key>
+```
+
+Deletes the object at `<key>` and records a delete marker. The history is kept, so any earlier version can still be restored. Prints `nothing to delete` if the key was already empty.
+
+## ls
+
+```bash
+ver2 ls [prefix]
+```
+
+Lists every key veR2 has a history for, including keys that are currently deleted. Follows pagination to the end.
+
+## versions
+
+```bash
+ver2 versions <key>
+```
+
+Shows the history of `<key>`, newest first: version ID, timestamp, size and SHA-256 (or `deleted`), and source (`ver2`, `external` or `restore`, with the restored version for restores).
+
+## restore
+
+```bash
+ver2 restore <key> <versionId>
+```
+
+Makes `<versionId>` the current version again. This adds a new version; it doesn't rewrite history.
+
+## download
+
+```bash
+ver2 download <key> [versionId] [-o <file>]
+```
+
+Writes a version (the current one if `versionId` is omitted) to `<file>` with `-o, --output`, or to stdout. The SHA-256 is verified while streaming; a mismatch fails with exit code 5.
+
+## reconcile
+
+```bash
+ver2 reconcile [key] [--dry-run] [--accept-live]
+```
+
+Settles operations that were interrupted (a crash, a timeout, a lost connection), using only evidence from storage. Without a key it checks every versioned key and prints only the ones that needed attention, or `nothing to reconcile`.
+
+Each result is one of:
+
+| Outcome | Meaning |
+|---|---|
+| `rolled-forward` | The operation had finished in storage; its version is now committed |
+| `rolled-back` | The operation never took effect; it was cleared |
+| `in-progress` | Another writer still holds the key; try again after its lease expires |
+| `stuck` | The evidence doesn't prove what happened; nothing was changed |
+| `accepted-live` | With `--accept-live`: the object currently at the key was adopted as a version |
+
+`--dry-run` reports what would happen without writing anything. `--accept-live` resolves `stuck` operations by keeping whatever is at the key now. `reconcile` exits with code 4 if anything is still stuck.
+
+## Global options
+
+| Option | Effect |
+|---|---|
+| `--json` | Machine-readable output on stdout; errors as JSON on stderr |
+| `-h, --help` | Show usage, commands, options and exit codes |
+
+With `--json`, errors are printed to stderr as:
+
+```json
+{ "error": { "code": "VERSION_NOT_FOUND", "message": "…", "details": { "key": "…", "versionId": "…" } } }
+```
+
+`code` is one of the SDK's [error codes](/docs/errors/), or `USAGE` for bad arguments.
+
+## Configuration
+
+Read from the environment, then from `.env.local` and `.env` in the current directory.
+
+| Variable | Required | Meaning |
+|---|---|---|
+| `R2_ACCOUNT_ID` | one of these two | Cloudflare account ID; the endpoint is derived from it |
+| `R2_ENDPOINT` | one of these two | Explicit endpoint, e.g. for EU-jurisdiction buckets |
+| `R2_BUCKET` | yes | Bucket name |
+| `R2_ACCESS_KEY_ID` | yes | R2 API token access key ID |
+| `R2_SECRET_ACCESS_KEY` | yes | R2 API token secret |
+| `VER2_NAMESPACE` | no | Reserved prefix for veR2's objects (default `.ver2`) |
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Success |
+| 1 | Error (storage failure, object or version not found, …) |
+| 2 | Usage or configuration error, including invalid keys |
+| 3 | Concurrency conflict: another writer changed the key; retry |
+| 4 | Operation incomplete: run `ver2 reconcile` |
+| 5 | Integrity check failed: downloaded bytes don't match their SHA-256 |

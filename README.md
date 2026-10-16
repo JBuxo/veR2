@@ -1,8 +1,8 @@
-# veR2
+<h1 align="center"><img src="site/public/logo.svg" alt="veR2" height="72"></h1>
 
 **Object versioning for Cloudflare R2.** Add version history to an existing R2 bucket without changing how anything reads from it.
 
-> **Status: pre-alpha.** The architecture is designed and the R2 behavior it depends on has been verified. Phase 1 (SDK + CLI) is in progress. APIs will change.
+> **Status: pre-alpha.** The architecture is designed and the R2 behavior it depends on has been verified. Phase 1 (SDK + CLI) is published on npm as `0.1.x`: `npm i @ver2/sdk` / `npm i -g @ver2/cli`. APIs will change.
 
 ## Why
 
@@ -60,6 +60,7 @@ veR2 guarantees what R2 lets it guarantee and documents the rest. The evidence i
 |---|---|
 | `sdk/` | `@ver2/sdk`: engine, storage drivers, metadata stores |
 | `cli/` | `@ver2/cli`: the `ver2` command |
+| `site/` | Website: landing page and docs (Next.js, static export) |
 | `docs/superpowers/specs/` | Architecture and design decisions |
 | `docs/superpowers/plans/` | Implementation plans |
 | `docs/research/` | Verified R2 behavior |

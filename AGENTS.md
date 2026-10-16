@@ -6,13 +6,14 @@ Instructions for AI coding agents (and humans) working in this repository. Tool-
 
 **veR2** adds object versioning to Cloudflare R2. Live objects stay at their keys, and every `put` / `delete` / `restore` keeps an immutable version in a reserved namespace (`.ver2/`). It ships as `@ver2/sdk` (library) and `@ver2/cli` (`ver2` command).
 
-Status: **pre-alpha**. Design is in `docs/superpowers/specs/2026-10-13-ver2-architecture.md`; Phase 1 is being built from `docs/superpowers/plans/2026-10-13-ver2-phase1-core.md`.
+Status: **pre-alpha**. Design is in `docs/superpowers/specs/2026-10-13-ver2-architecture.md`; Phase 1 (SDK + CLI, plan `docs/superpowers/plans/2026-10-13-ver2-phase1-core.md`) is complete and published on npm as `0.1.x`. The website follows `docs/superpowers/plans/2026-10-16-ver2-site.md`.
 
 ## Repository layout
 
 ```
 sdk/          @ver2/sdk: engine, storage drivers, metadata stores
 cli/          @ver2/cli: the `ver2` command (thin wrapper over the SDK)
+site/         @ver2/site: website (landing + docs), static export, never published
 docs/
   superpowers/specs/    architecture and design decisions
   superpowers/plans/    implementation plans (task-by-task, TDD)
@@ -28,6 +29,7 @@ npm test                    # all workspaces; R2 integration tests skip without 
 npm run typecheck
 npm run build
 npm test -w @ver2/sdk -- put    # one package, filtered by file name
+npm run dev -w @ver2/site       # website at http://localhost:3000
 ```
 
 R2 integration tests read the repo-root `.env.local` (`R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`). Use a **dedicated test bucket**. Tests write under `ver2-it/<run>/` and clean up after themselves.

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <style>
+    .fg { stroke: #0a0a0a; } .solid { fill: #0a0a0a; } .bg { fill: #ffffff; } .cut { stroke: #ffffff; }
+    @media (prefers-color-scheme: dark) {
+      .fg { stroke: #fafafa; } .solid { fill: #fafafa; } .bg { fill: #0a0a0a; } .cut { stroke: #0a0a0a; }
+    }
+  </style>
+  <rect class="fg bg" x="12.5" y="2.5" width="17" height="17" rx="4.5" stroke-width="2" opacity=".4"/>
+  <rect class="fg bg" x="7.5" y="7.5" width="17" height="17" rx="4.5" stroke-width="2" opacity=".7"/>
+  <rect class="solid" x="2.5" y="12.5" width="17" height="17" rx="4.5"/>
+  <path class="cut" d="M6.8 21A4.2 4.2 0 1 1 11 25.2" stroke-width="1.8" stroke-linecap="round"/>
+  <path class="cut" d="M5 19.4L6.8 21.4L8.6 19.4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
