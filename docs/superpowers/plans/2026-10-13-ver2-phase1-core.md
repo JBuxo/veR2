@@ -2767,7 +2767,7 @@ git commit -m "feat(sdk): add restore, version listing and verified download"
 - Modify: `sdk/src/index.ts` (replace the whole file)
 - Test: `sdk/test/client.test.ts`; delete `sdk/test/smoke.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `sdk/test/client.test.ts`:
 ```ts
@@ -2827,7 +2827,7 @@ describe("Ver2", () => {
 
 Run: `npm test -w @ver2/sdk -- client` → Expected: FAIL (`createVer2` is not exported).
 
-- [ ] **Step 2: Implement the facade**
+- [x] **Step 2: Implement the facade**
 
 `sdk/src/client.ts`:
 ```ts
@@ -2938,7 +2938,7 @@ export class Ver2 {
 export const createVer2 = (options: Ver2Options): Ver2 => new Ver2(options);
 ```
 
-- [ ] **Step 3: Public exports**
+- [x] **Step 3: Public exports**
 
 Replace `sdk/src/index.ts` with:
 ```ts
@@ -2975,7 +2975,7 @@ export const VERSION = "0.1.0";
 
 Run: `git rm sdk/test/smoke.test.ts`
 
-- [ ] **Step 4: Run tests, build, commit**
+- [x] **Step 4: Run tests, build, commit**
 
 Run: `npm test -w @ver2/sdk` → Expected: all pass.
 Run: `npm run build -w @ver2/sdk` → Expected: `sdk/dist/index.js`, `sdk/dist/storage/s3.js`, `sdk/dist/storage/memory.js` exist.
