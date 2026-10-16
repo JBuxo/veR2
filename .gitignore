@@ -5,3 +5,7 @@ coverage/
 .env.*
 !.env.example
 results/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo

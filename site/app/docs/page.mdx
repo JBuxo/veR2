@@ -1,0 +1,22 @@
+export const metadata = { title: "Introduction" };
+
+# Introduction
+
+veR2 adds object versioning to Cloudflare R2. R2 has no native versioning: an overwrite or a delete is permanent. veR2 keeps every version, lets you restore any of them, and tells you plainly when it can't guarantee something.
+
+Live objects stay at their original keys, so everything that reads from your bucket (CDNs, public URLs, presigned GETs) keeps working unchanged. Writes go through veR2, which keeps an immutable copy of every `put`, `delete` and `restore` in a reserved namespace inside the same bucket.
+
+veR2 ships as two packages:
+
+- **`@ver2/sdk`**: the library. Runtime-agnostic TypeScript; talks to R2 through its S3-compatible API.
+- **`@ver2/cli`**: the `ver2` command, a thin wrapper over the SDK.
+
+> **Status: pre-alpha (0.x).** The design is settled and the R2 behavior it depends on has been verified against real R2, but APIs will change between minor versions.
+
+## When to use it
+
+- You already store files in R2 and need history: undo an overwrite, recover a deleted object, see who changed what and when.
+- You can't put a proxy in the read path. veR2 never is: readers hit R2 directly.
+- You only want R2 credentials. At the Lite tier, veR2's metadata lives in the bucket itself.
+
+veR2 is not a backup of your whole bucket, and it can't stop clients that write to R2 directly from deleting objects. It does notice their writes and keeps them as versions. See [Guarantees and limitations](/docs/guarantees/) for exactly what it promises.
