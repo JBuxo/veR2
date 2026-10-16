@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { GitHubIcon } from "@/components/github-icon";
+import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/lib/site";
@@ -8,8 +9,8 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
-        <Link href="/" className="font-semibold tracking-tight">
-          {site.name}
+        <Link href="/" aria-label={`${site.name} home`}>
+          <Logo />
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           <Link href="/docs/" className={buttonVariants({ variant: "ghost", size: "sm" })}>

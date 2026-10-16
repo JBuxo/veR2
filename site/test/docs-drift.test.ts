@@ -69,3 +69,15 @@ describe("diagrams", () => {
     }
   });
 });
+
+describe("brand", () => {
+  it("ships the veR2 logo as SVG: favicon, standalone file and header", () => {
+    expect(existsSync(join(root, "app", "favicon.ico"))).toBe(false);
+    for (const file of [join(root, "app", "icon.svg"), join(root, "public", "logo.svg")]) {
+      const svg = readFileSync(file, "utf8");
+      expect(svg).toMatch(/^<svg [^>]*viewBox="/);
+      expect(svg).toContain("prefers-color-scheme: dark");
+    }
+    expect(readFileSync(join(root, "components", "site-header.tsx"), "utf8")).toContain("<Logo");
+  });
+});

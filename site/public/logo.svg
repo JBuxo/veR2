@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 32" fill="none" role="img" aria-label="veR2">
+  <style>
+    .fg { stroke: #0a0a0a; } .solid { fill: #0a0a0a; } .bg { fill: #ffffff; } .cut { stroke: #ffffff; }
+    .word { fill: #0a0a0a; font-family: Geist, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.04em; }
+    @media (prefers-color-scheme: dark) {
+      .fg { stroke: #fafafa; } .solid { fill: #fafafa; } .bg { fill: #0a0a0a; } .cut { stroke: #0a0a0a; } .word { fill: #fafafa; }
+    }
+  </style>
+  <rect class="fg bg" x="12.5" y="2.5" width="17" height="17" rx="4.5" stroke-width="2" opacity=".4"/>
+  <rect class="fg bg" x="7.5" y="7.5" width="17" height="17" rx="4.5" stroke-width="2" opacity=".7"/>
+  <rect class="solid" x="2.5" y="12.5" width="17" height="17" rx="4.5"/>
+  <path class="cut" d="M6.8 21A4.2 4.2 0 1 1 11 25.2" stroke-width="1.8" stroke-linecap="round"/>
+  <path class="cut" d="M5 19.4L6.8 21.4L8.6 19.4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="word" x="39" y="24" font-size="22"><tspan font-weight="500">ve</tspan><tspan font-weight="700">R2</tspan></text>
+</svg>
